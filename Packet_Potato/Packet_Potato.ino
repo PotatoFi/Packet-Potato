@@ -13,6 +13,7 @@ WARNING: This code is super messy! It works, but there's a LOT of stuff commente
 - DATA, MGMT, and CTRL LEDs depending on the received frame type
 - Disable Wi-Fi scanning during blinks to save battery power
 - Enable serial data on booth with button press
+- This is a test of git
 */
 
 int scanChannel = 6;                    // Current channel variable, and set it to start on channel 6
