@@ -411,10 +411,11 @@ void loop() {
   plusButtonState = digitalRead(plusButton); // Check the state of the button, copy to variable
   if ((plusButtonState == HIGH) && (currentTimeButton - previousTimeButton >= minButtonInterval)) {
     scanChannel++;                // Increase the channel by 1
-    Display.Update(scanChannel);  // Write new channel to display
     if (scanChannel == 14) {
       scanChannel = 1;
     }
+    Display.Update(scanChannel);  // Write new channel to display
+
     /*Serial.println("Plus button pressed!");
     Serial.println("Channel: ");
     Serial.print(scanChannel);
