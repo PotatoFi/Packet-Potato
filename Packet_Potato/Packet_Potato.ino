@@ -97,7 +97,7 @@ const int minusButton = 16;     // Button
 
 sevensegment Display(14, 15, 13, 2); //CLK, LOAD/CS, DIN, Num of Digits
 
-byte serialEnable = 6;          // Controls whether serial output is enabled or not
+byte serialEnable = HIGH;          // Controls whether serial output is enabled or not
 
 void setup()
 {
@@ -406,28 +406,6 @@ void loop() {
   
   //Serial.println("Tick!");
 
-<<<<<<< Updated upstream
-  // Plus button logic (currently commented out because it doesn't work due to hardware problems)
-  plusButtonState = digitalRead(plusButton); // Check the state of the button, copy to variable
-  if ((plusButtonState == HIGH) && (currentTimeButton - previousTimeButton >= minButtonInterval)) {
-    scanChannel++;                // Increase the channel by 1
-    if (scanChannel == 14) {
-      scanChannel = 1;
-    }
-    Display.Update(scanChannel);  // Write new channel to display
-
-    /*Serial.println("Plus button pressed!");
-    Serial.println("Channel: ");
-    Serial.print(scanChannel);
-    Serial.println();*/
-    
-    previousTimeButton = currentTimeButton;
-    resetScanning();            // Reset scanning so the new channel is used
-  }
-  
-=======
-
->>>>>>> Stashed changes
   // Minus button logic
 
   minusButtonState = digitalRead(minusButton); // Check the state of the button, copy to variable
