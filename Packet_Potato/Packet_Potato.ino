@@ -25,7 +25,7 @@ int scanChannel = 6;                    // Current channel variable, and set it 
 
 // Define intervals and durations
 
-const int minBlinkInterval = 50;        // Minimum amount of time between blinks (not sure this works right now)
+const int minBlinkInterval = 10;        // Minimum amount of time between blinks (not sure this works right now)
 const int blinkDuration = 100;          // Amount of time to keep LED's lit (not sure this works right now)
 const int minButtonInterval = 200;      // Minimum amount of time between button presses
 
@@ -51,16 +51,15 @@ unsigned long previousTimeButton = 0;
 
 int stateOFDM = 0;                      // Current state of the OFDM LEDs
 int stateDSSS = 0;                      // Current state of the DSSS LEDs
-int stateMGMT = 0;
-int stateCTRL = 0;
-int stateDATA = 0;
+int stateMGMT = 0;                      // Current state of the MGMT LED
+int stateCTRL = 0;                      // Current state of the CTRL LED
+int stateDATA = 0;                      // Current state of the DATA LED
 int plusButtonState = 0;                // Current state of plus button
 int minusButtonState = 0;               // Current state of minus button
 
 // Create scheduling variables, these ensure that only one one thing happens at a time
 
 int processingFrame = 0;           // 0 is not processing a frame, 1 is processing a frame
-// This is experimental, currently commented out
 
 // Create trigger variables
 // These should probably be true/false, idk lol!
@@ -111,9 +110,6 @@ void setup()
   pinMode(plusButton, INPUT);
   pinMode(minusButton, INPUT);
 
-  //Initialize display
-  Display.Begin();
-  Display.Update(scanChannel);
 
   //Test LED's
 
@@ -128,6 +124,10 @@ void setup()
   digitalWrite(OFDMPin, HIGH); // Green LED ON
   delay(1000);
 
+  //Initialize display and test
+  Display.Begin();
+  Display.Update(88);
+
   digitalWrite(OFDMPin, LOW);
   delay(400);
   digitalWrite(DSSSPin, LOW);
@@ -139,8 +139,10 @@ void setup()
   digitalWrite(pinMGMT, LOW);
   delay(400);
 
+  // Set display to current channel
+  Display.Update(scanChannel);
+
   serialEnable = digitalRead(minusButton);
-//  serialEnable = HIGH;
 
   if (serialEnable == HIGH) {
     Serial.begin(115200);
@@ -156,8 +158,6 @@ void setup()
   //   wifi_set_promiscuous_rx_cb(capture);
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
   wifi_promiscuous_enable(1);
-
-
 }
 
 struct RxControl {
@@ -194,8 +194,11 @@ struct sniffer_buf2 {         // I have absolutely no idea what is going on here
   u16 len;                    // Length of packet
 };
 
-wifi_promiscuous_pkt_type_t packet_type_parser(uint16_t len)
-{
+// This is commented out because it's not used at the moment. Might be more useful than the string operations
+// later so I haven't deleted it yet.
+/*
+  wifi_promiscuous_pkt_type_t packet_type_parser(uint16_t len)
+  {
   switch (len)
   {
     // If only rx_ctrl is returned, this is an unsupported packet
@@ -210,16 +213,12 @@ wifi_promiscuous_pkt_type_t packet_type_parser(uint16_t len)
     default:
       return WIFI_PKT_DATA;
   }
-}
+  }
+*/
 
+// This is the new handler, stolen mostly from https://github.com/n0w/esp8266-simple-sniffer/blob/master/src/main.cpp
 void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
 {
-  /*
-     Serial.print("In wifi_sniffer_packet_handler(), len=");
-     Serial.print(len);
-     Serial.print("\n");
-  */
-
   // First layer: type cast the received buffer into our generic SDK structure
   const wifi_promiscuous_pkt_t *ppkt = (wifi_promiscuous_pkt_t *)buff;
 
@@ -233,43 +232,41 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
   // Pointer to the frame control section within the packet header
   const wifi_header_frame_control_t *frame_ctrl = (wifi_header_frame_control_t *)&hdr->frame_ctrl;
 
+  // I get a ton of MCS 0 rate packets. Not sure if this is my environment or something is broken, but it seems strange.
+  /*
+    if (serialEnable == HIGH) {
+       if (ppkt->rx_ctrl.rate == 0){
+         Serial.print("Rate=MCS ");
+         Serial.print(ppkt->rx_ctrl.mcs);
+       } else {
+         Serial.print("Rate=");
+         Serial.print(ppkt->rx_ctrl.rate);
+       }
+     }
+  */
 
-// I get a ton of MCS 0 rate packets. Not sure if this is my environment or something is broken, but it seems strange.
-/*
-  if (ppkt->rx_ctrl.rate == 0){
-    Serial.print("Rate=MCS ");
-    Serial.print(ppkt->rx_ctrl.mcs);
-  } else {
-    Serial.print("Rate=");
-    Serial.print(ppkt->rx_ctrl.rate);
-  }
-*/
+  // This is a fun thing to flash the current rate on the display instead of the channel but it's so fast it's mostly useless
+  /*
+    if (ppkt->rx_ctrl.rate == 0) {
+      Display.Update(ppkt->rx_ctrl.mcs);
+    } else {
+      Display.Update(ppkt->rx_ctrl.rate);
+    }
+  */
 
 
-/*
-  Serial.print("Frame type=");
-  Serial.print(wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype));
-  Serial.print("\n");
-*/
-
-// rate = 0 when an MCS encoding is used. This logic still works, but be wary of using the rate variable alone.
- switch ( ppkt->rx_ctrl.rate) {
-    case 1: // 802.11b
+  // rate = 0 when an MCS encoding is used. This logic still works, but be wary of using the rate variable alone.
+  switch ( ppkt->rx_ctrl.rate) {
+    case 1:
       triggerDSSS = 1;
       break;
-    case 2: // 802.11b
+    case 2:
       triggerDSSS = 1;
       break;
-    case 5.5: // 802.11b
+    case 5.5:
       triggerDSSS = 1;
       break;
-    case 11: // 802.11b
-      triggerDSSS = 1;
-      break;
-    case 22: // 802.11g
-      triggerDSSS = 1;
-      break;
-    case 33: // 802.11g
+    case 11:
       triggerDSSS = 1;
       break;
     default:
@@ -277,22 +274,24 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
       break;
   }
 
-// Display.Update(ppkt->rx_ctrl.rate);
-
   String type = wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype);
 
-//  Serial.print("Frame type: ");
-//  Serial.print(type);
-//  Serial.print("\n");
+  // Dump the frame type to serial
+  if (serialEnable == HIGH) {
+    Serial.print("Frame type: ");
+    Serial.print(type);
+    Serial.print("\n");
+  }
 
-// This is bad and could be improved by just checking the type and not the subtype like the called function does
-  if (type == "Data"){
+  String mgmt = "Mgmt:";
+  // This is bad and could be improved by just checking the type and not the subtype like the called function does
+  if (type == "Data") {
     triggerDATA = 1;
     Serial.print("Data\n");
-  } else if (type == "Control"){
+  } else if (type == "Control") {
     triggerCTRL = 1;
     Serial.print("Control\n");
-  } else if (type.equals("Mgmt: Beacon frame") or type.equals("Mgmt: Probe response") or type.equals("Mgmt: Probe request") or type.equals("Mgmt: Action")){
+  } else if (strstr(type.c_str(), mgmt.c_str())) { // See if the string "Mgmt:" is a substring of the type
     triggerMGMT = 1;
   } else {
     Serial.print("Unknown frame type: ");
@@ -300,51 +299,10 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
     Serial.print("\n");
   }
 
-  /*
-    // Output info to serial
-    Serial.printf("\n%s | %s | %s | %u | %02d | %u | %u(%-2u) | %-28s | %u | %u | %u | %u | %u | %u | %u | %u | ",
-      addr1,
-      addr2,
-      addr3,
-      wifi_get_channel(),
-      ppkt->rx_ctrl.rssi,
-      frame_ctrl->protocol,
-      frame_ctrl->type,
-      frame_ctrl->subtype,
-      wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype),
-      frame_ctrl->to_ds,
-      frame_ctrl->from_ds,
-      frame_ctrl->more_frag,
-      frame_ctrl->retry,
-      frame_ctrl->pwr_mgmt,
-      frame_ctrl->more_data,
-      frame_ctrl->wep,
-      frame_ctrl->strict);
-
-    // Print ESSID if beacon
-    if (frame_ctrl->type == WIFI_PKT_MGMT && frame_ctrl->subtype == BEACON)
-    {
-      const wifi_mgmt_beacon_t *beacon_frame = (wifi_mgmt_beacon_t*) ipkt->payload;
-      char ssid[32] = {0};
-
-      if (beacon_frame->tag_length >= 32)
-      {
-        strncpy(ssid, beacon_frame->ssid, 31);
-      }
-      else
-      {
-        strncpy(ssid, beacon_frame->ssid, beacon_frame->tag_length);
-      }
-
-      Serial.printf("%s", ssid);
-    }
-  */
 }
-
 
 void capture(uint8_t *buff, uint16_t len)         // This seems to callback whenever a packet is heard?
 {
-
   sniffer_buf2 *data = (sniffer_buf2 *)buff;     // No idea what this does (but *data is a pointer, right?)
 
   // Scanning logic
@@ -369,7 +327,6 @@ void capture(uint8_t *buff, uint16_t len)         // This seems to callback when
       triggerOFDM = 1;
       break;
   }
-
 
   // Write the data to serial, so we can see what is going on
   if (serialEnable == HIGH) {
@@ -396,14 +353,13 @@ void capture(uint8_t *buff, uint16_t len)         // This seems to callback when
 void loop() {
 
   // Update timers
-
   unsigned long currentTimeDSSS = millis();
-  unsigned long currentTimeOFDM = millis(); 
+  unsigned long currentTimeOFDM = millis();
   unsigned long currentTimeMGMT = millis();
   unsigned long currentTimeCTRL = millis();
   unsigned long currentTimeDATA = millis();
   unsigned long currentTimeButton = millis(); // Set the current time for a button press
-  
+
   //Serial.println("Tick!");
 
   // Minus button logic
@@ -501,7 +457,7 @@ void loop() {
     stateMGMT = 1;                                                                      // Set MGMT LED state to "on"
     digitalWrite(pinMGMT, HIGH);                                                        // Turn MGMT LED pin on
     //Serial.println("MGMT on!");
-    triggerMGMT= 0;                                                                    // Reset the MGMT trigger to "off"
+    triggerMGMT = 0;                                                                   // Reset the MGMT trigger to "off"
   }
 
   // Check to see if we need to turn the DATA LED off
@@ -519,7 +475,7 @@ void loop() {
     stateDATA = 1;                                                                      // Set DATA LED state to "on"
     digitalWrite(pinDATA, HIGH);                                                        // Turn DATA LED pin on
     //Serial.println("DATA on!");
-    triggerDATA= 0;                                                                    // Reset the DATA trigger to "off"
+    triggerDATA = 0;                                                                   // Reset the DATA trigger to "off"
   }
 
   // Check to see if we need to turn the CTRL LED off
@@ -537,14 +493,13 @@ void loop() {
     stateCTRL = 1;                                                                      // Set CTRL LED state to "on"
     digitalWrite(pinCTRL, HIGH);                                                        // Turn CTRL LED pin on
     //Serial.println("CTRL on!");
-    triggerCTRL= 0;                                                                    // Reset the CTRL trigger to "off"
+    triggerCTRL = 0;                                                                   // Reset the CTRL trigger to "off"
   }
 
 
 }
 
 // Reset scanning, used whenever we change channels with the buttons
-
 void resetScanning() {
   wifi_set_opmode(STATION_MODE);
   wifi_promiscuous_enable(0);
