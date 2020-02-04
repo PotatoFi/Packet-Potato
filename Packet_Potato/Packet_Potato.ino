@@ -108,10 +108,11 @@ void setup()
   pinMode(pinCTRL, OUTPUT);
   pinMode(pinDATA, OUTPUT);
   pinMode(plusButton, INPUT);
-  pinMode(minusButton, INPUT);
+  pinMode(minusButton, INPUT);  
+  }
 
 
-  //Test LED's
+  // Test LED's
 
   digitalWrite(pinMGMT, HIGH); // Green LED ON
   delay(400);
@@ -142,6 +143,7 @@ void setup()
   // Set display to current channel
   Display.Update(scanChannel);
 
+  // Check to see if the "-" button has been pressed to enable serial
   serialEnable = digitalRead(minusButton);
 
   if (serialEnable == HIGH) {
