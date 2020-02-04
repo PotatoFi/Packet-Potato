@@ -109,8 +109,6 @@ void setup()
   pinMode(pinDATA, OUTPUT);
   pinMode(plusButton, INPUT);
   pinMode(minusButton, INPUT);  
-  }
-
 
   // Test LED's
 
@@ -278,10 +276,14 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
 
   String type = wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype);
 
-  // Dump the frame type to serial
+  // Dump the frame type and data rate to serial
   if (serialEnable == HIGH) {
     Serial.print("Frame type: ");
     Serial.print(type);
+    Serial.print("\n");
+    Serial.print("Data Rate: ");
+    Serial.print(ppkt->rx_ctrl.rate);
+    Serial.print("\n");
     Serial.print("\n");
   }
 
