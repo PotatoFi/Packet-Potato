@@ -113,23 +113,23 @@ void setup()
   delay(300);
 
   // Test LED's
-  digitalWrite(DSSSPin, HIGH); // Green LED ON
+  digitalWrite(DSSSPin, HIGH);
   Display.Update(20);
   delay(200);
   
-  digitalWrite(OFDMPin, HIGH); // Green LED ON
+  digitalWrite(OFDMPin, HIGH);
   Display.Update(40);
   delay(200);
 
-  digitalWrite(pinDATA, HIGH); // Green LED ON
+  digitalWrite(pinDATA, HIGH);
   Display.Update(60);
   delay(200);
 
-  digitalWrite(pinCTRL, HIGH); // Green LED ON
+  digitalWrite(pinCTRL, HIGH);
   Display.Update(80);
   delay(200);
 
-  digitalWrite(pinMGMT, HIGH); // Green LED ON
+  digitalWrite(pinMGMT, HIGH);
   Display.Update(99);
   delay(400);
 
