@@ -16,11 +16,10 @@ extern "C" {
   - Blink only DSSS or OFDM, but never both simultaneously
   - DATA, MGMT, and CTRL LEDs depending on the received frame type
   - Disable Wi-Fi scanning during blinks to save battery power
-  - Enable serial data on booth with button press
   - This is a test of git
 */
 
-int scanChannel = 6;                    // Current channel variable, and set it to start on channel 6
+int scanChannel = 2;                    // Current channel variable, and set it to start on channel 6
 // In the future, we could save this value to the EEPROM to persist after poweroffs
 
 // Define intervals and durations
@@ -82,8 +81,7 @@ byte triggerDATA = 0;               // Triggers the DATA LED, 1 is triggered, 0 
   const int minusButton = 16;     // Button
 */
 
-// Define Arduino pins (board v1.2)
-
+// Define Arduino pins (board v1.02, v1.03, and v1.04)
 const int OFDMPin = 4;          // LEDs
 const int DSSSPin = 0;          // LEDs
 const int pinMGMT = 5;          // LED
@@ -92,11 +90,10 @@ const int pinDATA = 3;          // LED
 const int plusButton = 12;      // Button
 const int minusButton = 16;     // Button
 
-// Define display pins (Same on Beta and v1.2)
-
+// Define display pins (Same on all revisions)
 sevensegment Display(14, 15, 13, 2); //CLK, LOAD/CS, DIN, Num of Digits
 
-byte serialEnable = HIGH;          // Controls whether serial output is enabled or not
+byte serialEnable = HIGH;       // Controls whether serial output is enabled or not
 
 void setup()
 {
@@ -116,25 +113,34 @@ void setup()
   delay(300);
 
   // Test LED's
-  digitalWrite(DSSSPin, HIGH); // Green LED ON
+  digitalWrite(DSSSPin, HIGH);
   Display.Update(20);
   delay(200);
   
-  digitalWrite(OFDMPin, HIGH); // Green LED ON
+  digitalWrite(OFDMPin, HIGH);
   Display.Update(40);
   delay(200);
 
-  digitalWrite(pinDATA, HIGH); // Green LED ON
+  digitalWrite(pinDATA, HIGH);
   Display.Update(60);
   delay(200);
 
-  digitalWrite(pinCTRL, HIGH); // Green LED ON
+  digitalWrite(pinCTRL, HIGH);
   Display.Update(80);
   delay(200);
 
-  digitalWrite(pinMGMT, HIGH); // Green LED ON
+  digitalWrite(pinMGMT, HIGH);
   Display.Update(99);
   delay(400);
+
+  // Check to see if the "+" button has been pressed to enable serial
+  serialEnable = digitalRead(plusButton);
+
+  if (serialEnable == HIGH) {
+    Display.Update(50);
+    Serial.begin(115200);
+    Serial.print("Starting serial output!");
+  }
 
   digitalWrite(pinMGMT, LOW);
   delay(150);
@@ -149,14 +155,6 @@ void setup()
 
   // Set display to current channel
   Display.Update(scanChannel);
-
-  // Check to see if the "-" button has been pressed to enable serial
-  serialEnable = digitalRead(minusButton);
-
-  if (serialEnable == HIGH) {
-    Serial.begin(115200);
-    Serial.print("Starting serial output!");
-  }
 
   //Set station mode, callback, then cycle promiscuous mode
   wifi_set_opmode(STATION_MODE);
@@ -241,19 +239,6 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
   // Pointer to the frame control section within the packet header
   const wifi_header_frame_control_t *frame_ctrl = (wifi_header_frame_control_t *)&hdr->frame_ctrl;
 
-  // I get a ton of MCS 0 rate packets. Not sure if this is my environment or something is broken, but it seems strange.
-  /*
-    if (serialEnable == HIGH) {
-       if (ppkt->rx_ctrl.rate == 0){
-         Serial.print("Rate=MCS ");
-         Serial.print(ppkt->rx_ctrl.mcs);
-       } else {
-         Serial.print("Rate=");
-         Serial.print(ppkt->rx_ctrl.rate);
-       }
-     }
-  */
-
   // This is a fun thing to flash the current rate on the display instead of the channel but it's so fast it's mostly useless
   /*
     if (ppkt->rx_ctrl.rate == 0) {
@@ -262,7 +247,6 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
       Display.Update(ppkt->rx_ctrl.rate);
     }
   */
-
 
   // rate = 0 when an MCS encoding is used. This logic still works, but be wary of using the rate variable alone.
   switch ( ppkt->rx_ctrl.rate) {
@@ -293,6 +277,9 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
     Serial.print("Data Rate: ");
     Serial.print(ppkt->rx_ctrl.rate);
     Serial.print("\n");
+    Serial.print("MCS: ");
+    Serial.print(ppkt->rx_ctrl.mcs);
+    Serial.print("\n");
     Serial.print("\n");
   }
 
@@ -300,16 +287,16 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
   // This is bad and could be improved by just checking the type and not the subtype like the called function does
   if (type == "Data") {
     triggerDATA = 1;
-    Serial.print("Data\n");
+    //Serial.print("Data\n");
   } else if (type == "Control") {
     triggerCTRL = 1;
-    Serial.print("Control\n");
+    //Serial.print("Control\n");
   } else if (strstr(type.c_str(), mgmt.c_str())) { // See if the string "Mgmt:" is a substring of the type
     triggerMGMT = 1;
   } else {
-    Serial.print("Unknown frame type: ");
+    /*Serial.print("Unknown frame type: ");
     Serial.print(type);
-    Serial.print("\n");
+    Serial.print("\n");*/
   }
 
 }
@@ -317,49 +304,6 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
 void capture(uint8_t *buff, uint16_t len)         // This seems to callback whenever a packet is heard?
 {
   sniffer_buf2 *data = (sniffer_buf2 *)buff;     // No idea what this does (but *data is a pointer, right?)
-
-  // Scanning logic
-  // Currently looks for 1, 2.2, 5, 11 mbps, blinks DSSS
-  // If it sees anything else, it blinks OFDM
-  // I haven't fixed this because I am SOOOOOPER busy!
-
-  switch (data ->rx_ctrl.rate) {
-    case 1:
-      triggerDSSS = 1;
-      break;
-    case 2:
-      triggerDSSS = 1;
-      break;
-    case 5.5:
-      triggerDSSS = 1;
-      break;
-    case 11:
-      triggerDSSS = 1;
-      break;
-    default:
-      triggerOFDM = 1;
-      break;
-  }
-
-  // Write the data to serial, so we can see what is going on
-  if (serialEnable == HIGH) {
-    Serial.print(" Signal Strength: ");
-    Serial.print(data->rx_ctrl.rssi);
-    Serial.println();
-    Serial.print(" Channel: ");
-    Serial.print(data->rx_ctrl.channel);
-    Serial.println();
-    Serial.print(" Data Rate: ");
-    Serial.print(data->rx_ctrl.rate);
-    Serial.println();
-    Serial.print(" MCS Index :");
-    Serial.print(data->rx_ctrl.MCS);
-    Serial.println();
-    Serial.print(" Unknown :");
-    Serial.print(data->rx_ctrl.is_group);
-    Serial.println();
-    Serial.println();
-  }
 
 }
 
@@ -373,8 +317,6 @@ void loop() {
   unsigned long currentTimeDATA = millis();
   unsigned long currentTimeButton = millis(); // Set the current time for a button press
 
-  //Serial.println("Tick!");
-
   // Minus button logic
 
   minusButtonState = digitalRead(minusButton); // Check the state of the button, copy to variable
@@ -385,10 +327,14 @@ void loop() {
     }
     Display.Update(scanChannel); // Write new channel to display
 
-    /*Serial.println("Minus button pressed!");
+    if (serialEnable == HIGH) {
+      Serial.println("Minus button pressed!");
+      Serial.print("\n");
       Serial.println("Channel: ");
       Serial.print(scanChannel);
-      Serial.println();*/
+      Serial.print("\n");
+      Serial.print("\n");
+    }
 
     previousTimeButton = currentTimeButton;
     resetScanning();            // Reset scanning so the new channel is used
@@ -404,10 +350,14 @@ void loop() {
     }
     Display.Update(scanChannel); // Write new channel to display
 
-    /*Serial.println("plus button pressed!");
+    if (serialEnable == HIGH) {
+      Serial.println("Plus button pressed!");
+      Serial.print("\n");
       Serial.println("Channel: ");
       Serial.print(scanChannel);
-      Serial.println();*/
+      Serial.print("\n");
+      Serial.print("\n");
+    }
 
     previousTimeButton = currentTimeButton;
     resetScanning();            // Reset scanning so the new channel is used
