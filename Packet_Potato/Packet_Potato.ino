@@ -25,8 +25,8 @@ int scanChannel = 6;                    // Current channel variable, and set it 
 
 // Define intervals and durations
 
-const int minBlinkInterval = 10;        // Minimum amount of time between blinks (not sure this works right now)
-const int blinkDuration = 100;          // Amount of time to keep LED's lit (not sure this works right now)
+const int minBlinkInterval = 105;        // Minimum amount of time between blinks (not sure this works right now)
+const int blinkDuration = 110;          // Amount of time to keep LED's lit (not sure this works right now)
 const int minButtonInterval = 200;      // Minimum amount of time between button presses
 
 // Define tickers to keep track of time
@@ -108,35 +108,44 @@ void setup()
   pinMode(pinCTRL, OUTPUT);
   pinMode(pinDATA, OUTPUT);
   pinMode(plusButton, INPUT);
-  pinMode(minusButton, INPUT);  
-
-  // Test LED's
-
-  digitalWrite(pinMGMT, HIGH); // Green LED ON
-  delay(400);
-  digitalWrite(pinCTRL, HIGH); // Green LED ON
-  delay(400);
-  digitalWrite(pinDATA, HIGH); // Green LED ON
-  delay(400);
-  digitalWrite(DSSSPin, HIGH); // Green LED ON
-  delay(400);
-  digitalWrite(OFDMPin, HIGH); // Green LED ON
-  delay(1000);
+  pinMode(minusButton, INPUT); 
 
   //Initialize display and test
   Display.Begin();
   Display.Update(88);
+  delay(300);
 
-  digitalWrite(OFDMPin, LOW);
+  // Test LED's
+  digitalWrite(DSSSPin, HIGH); // Green LED ON
+  Display.Update(20);
+  delay(200);
+  
+  digitalWrite(OFDMPin, HIGH); // Green LED ON
+  Display.Update(40);
+  delay(200);
+
+  digitalWrite(pinDATA, HIGH); // Green LED ON
+  Display.Update(60);
+  delay(200);
+
+  digitalWrite(pinCTRL, HIGH); // Green LED ON
+  Display.Update(80);
+  delay(200);
+
+  digitalWrite(pinMGMT, HIGH); // Green LED ON
+  Display.Update(99);
   delay(400);
-  digitalWrite(DSSSPin, LOW);
-  delay(400);
-  digitalWrite(pinDATA, LOW);
-  delay(400);
-  digitalWrite(pinCTRL, LOW);
-  delay(400);
+
   digitalWrite(pinMGMT, LOW);
-  delay(400);
+  delay(150);
+  digitalWrite(pinCTRL, LOW);
+  delay(150);
+  digitalWrite(pinDATA, LOW);
+  delay(150);
+  digitalWrite(OFDMPin, LOW);
+  delay(150);
+  digitalWrite(DSSSPin, LOW);
+  delay(150);
 
   // Set display to current channel
   Display.Update(scanChannel);
@@ -511,22 +520,6 @@ void resetScanning() {
 
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
   //   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
-  wifi_promiscuous_enable(1);
-  wifi_set_channel(scanChannel);
-}
-
-// Turns scanning off, currently not used
-
-void scanOff() {                          // All commented out right now, but will likely use to stop callbacks and save battery power
-  wifi_set_opmode(STATION_MODE);
-  wifi_promiscuous_enable(0);
-  WiFi.disconnect();
-}
-
-// Turns scanning on, currently not used
-
-void scanOn() {
-  wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
   wifi_promiscuous_enable(1);
   wifi_set_channel(scanChannel);
 }
