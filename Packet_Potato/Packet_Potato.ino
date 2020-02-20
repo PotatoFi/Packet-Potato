@@ -363,102 +363,86 @@ void loop() {
     resetScanning();            // Reset scanning so the new channel is used
   }
 
-  // DSSS LEDs Logic
+
+/*=====================================*/
 
   // Check to see if we need to turn the DSSS LED off
   if ((stateDSSS == 1) && (currentTimeDSSS - previousTimeDSSS >= blinkDuration)) {      // Check to see if we need to turn DSSS off
     digitalWrite(DSSSPin, LOW);                                                         // Turn DSSS pin off
+    digitalWrite(pinMGMT, LOW);                                                         // Turn MGMT pin off
+    digitalWrite(pinCTRL, LOW);                                                         // Turn CTRL pin off
+    digitalWrite(pinDATA, LOW);                                                         // Turn DATA pin off
     stateDSSS = 0;                                                                      // Set the DSSS LED state to "off"
-    //Serial.println("DSSS off!");
     previousTimeDSSS = currentTimeDSSS;                                                 // Reset the timer
     processingFrame = 0;                                                                // Say that we're no longer processing a frame
-    //scanOn();
   }
-
-  // Turn the DSSS LED on
-  if ((triggerDSSS == 1) && (currentTimeDSSS - previousTimeDSSS >= minBlinkInterval)) { // Check to see if we need to turn DSSS on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateDSSS = 1;                                                                      // Set DSSS LED state to "on"
-    digitalWrite(DSSSPin, HIGH);                                                        // Turn DSSS LED pin on
-    //Serial.println("DSSS on!");
-    triggerDSSS = 0;                                                                    // Reset the DSSS trigger to "off"
-  }
-
-  // OFDM LEDs Logic
 
   // Check to see if we need to turn the OFDM LED off
   if ((stateOFDM == 1) && (currentTimeOFDM - previousTimeOFDM >= blinkDuration)) {      // Check to see if we need to turn OFDM off
     digitalWrite(OFDMPin, LOW);                                                         // Turn OFDM pin off
+    digitalWrite(pinMGMT, LOW);                                                         // Turn MGMT pin off
+    digitalWrite(pinCTRL, LOW);                                                         // Turn CTRL pin off
+    digitalWrite(pinDATA, LOW);                                                         // Turn DATA pin off
     stateOFDM = 0;                                                                      // Set the OFDM LED state to "off"
-    //Serial.println("OFDM off!");
     previousTimeOFDM = currentTimeOFDM;                                                 // Reset the timer
     processingFrame = 0;                                                                // Say that we're no longer processing a frame
-    //scanOn();
   }
 
-  // Turn the OFDM LED on
+  // Turn the DSSS LED and frame type LED on
+  if ((triggerDSSS == 1) && (currentTimeDSSS - previousTimeDSSS >= minBlinkInterval)) { // Check to see if we need to turn DSSS on
+    processingFrame = 1;                                                                // Say that we're busy processing a frame
+    stateDSSS = 1;                                                                      // Set DSSS LED state to "on"
+    digitalWrite(DSSSPin, HIGH);                                                        // Turn DSSS LED pin on
+
+    if (triggerMGMT == 1) {                                                             // Set MGMT LED state to "on"
+      stateMGMT = 1;
+      digitalWrite(pinMGMT, HIGH);
+      triggerMGMT = 0;
+    }
+
+    if (triggerCTRL == 1) {                                                             // Set CTRL LED state to "on"
+      stateCTRL = 1;
+      digitalWrite(pinCTRL, HIGH);
+      triggerCTRL = 0;
+    }
+
+    if (triggerDATA == 1) {                                                             // Set DATA LED state to "on"
+      stateDATA = 1;
+      digitalWrite(pinDATA, HIGH);
+      triggerDATA = 0;
+    }
+
+    triggerDSSS = 0;                                                                    // Reset the DSSS trigger to "off"
+
+  }
+
+  // Turn the OFDM LED and frame type LED on
   if ((triggerOFDM == 1) && (currentTimeOFDM - previousTimeOFDM >= minBlinkInterval)) { // Check to see if we need to turn OFDM on
     processingFrame = 1;                                                                // Say that we're busy processing a frame
     stateOFDM = 1;                                                                      // Set OFDM LED state to "on"
     digitalWrite(OFDMPin, HIGH);                                                        // Turn OFDM LED pin on
-    //Serial.println("OFDM on!");
+
+    if (triggerMGMT == 1) {                                                             // Set MGMT LED state to "on"
+      stateMGMT = 1;
+      digitalWrite(pinMGMT, HIGH);
+      triggerMGMT = 0;
+    }
+
+    if (triggerCTRL == 1) {                                                             // Set CTRL LED state to "on"
+      stateCTRL = 1;
+      digitalWrite(pinCTRL, HIGH);
+      triggerCTRL = 0;
+    }
+
+    if (triggerDATA == 1) {                                                             // Set DATA LED state to "on"
+      stateDATA = 1;
+      digitalWrite(pinDATA, HIGH);
+      triggerDATA = 0;
+    }
+
     triggerOFDM = 0;                                                                    // Reset the OFDM trigger to "off"
+    
   }
-
-  // Check to see if we need to turn the MGMT LED off
-  if ((stateMGMT == 1) && (currentTimeMGMT - previousTimeMGMT >= blinkDuration)) {      // Check to see if we need to turn MGMT off
-    digitalWrite(pinMGMT, LOW);                                                         // Turn MGMT pin off
-    stateMGMT = 0;                                                                      // Set the MGMT LED state to "off"
-    //Serial.println("MGMT off!");
-    previousTimeMGMT = currentTimeMGMT;                                                 // Reset the timer
-    processingFrame = 0;                                                                // Say that we're no longer processing a frame
-  }
-
-  // Turn the MGMT LED on
-  if ((triggerMGMT == 1) && (currentTimeMGMT - previousTimeMGMT >= minBlinkInterval)) { // Check to see if we need to turn MGMT on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateMGMT = 1;                                                                      // Set MGMT LED state to "on"
-    digitalWrite(pinMGMT, HIGH);                                                        // Turn MGMT LED pin on
-    //Serial.println("MGMT on!");
-    triggerMGMT = 0;                                                                   // Reset the MGMT trigger to "off"
-  }
-
-  // Check to see if we need to turn the DATA LED off
-  if ((stateDATA == 1) && (currentTimeDATA - previousTimeDATA >= blinkDuration)) {      // Check to see if we need to turn DATA off
-    digitalWrite(pinDATA, LOW);                                                         // Turn DATA pin off
-    stateDATA = 0;                                                                      // Set the DATA LED state to "off"
-    //Serial.println("DATA off!");
-    previousTimeDATA = currentTimeDATA;                                                 // Reset the timer
-    processingFrame = 0;                                                                // Say that we're no longer processing a frame
-  }
-
-  // Turn the DATA LED on
-  if ((triggerDATA == 1) && (currentTimeDATA - previousTimeDATA >= minBlinkInterval)) { // Check to see if we need to turn DATA on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateDATA = 1;                                                                      // Set DATA LED state to "on"
-    digitalWrite(pinDATA, HIGH);                                                        // Turn DATA LED pin on
-    //Serial.println("DATA on!");
-    triggerDATA = 0;                                                                   // Reset the DATA trigger to "off"
-  }
-
-  // Check to see if we need to turn the CTRL LED off
-  if ((stateCTRL == 1) && (currentTimeCTRL - previousTimeCTRL >= blinkDuration)) {      // Check to see if we need to turn CTRL off
-    digitalWrite(pinCTRL, LOW);                                                         // Turn CTRL pin off
-    stateCTRL = 0;                                                                      // Set the CTRL LED state to "off"
-    //Serial.println("CTRL off!");
-    previousTimeCTRL = currentTimeCTRL;                                                 // Reset the timer
-    processingFrame = 0;                                                                // Say that we're no longer processing a frame
-  }
-
-  // Turn the CTRL LED on
-  if ((triggerCTRL == 1) && (currentTimeCTRL - previousTimeCTRL >= minBlinkInterval)) { // Check to see if we need to turn CTRL on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateCTRL = 1;                                                                      // Set CTRL LED state to "on"
-    digitalWrite(pinCTRL, HIGH);                                                        // Turn CTRL LED pin on
-    //Serial.println("CTRL on!");
-    triggerCTRL = 0;                                                                   // Reset the CTRL trigger to "off"
-  }
-
 
 }
 
