@@ -19,12 +19,31 @@ extern "C" {
   - This is a test of git
 */
 
-int scanChannel = 2;                    // Current channel variable, and set it to start on channel 6
-// In the future, we could save this value to the EEPROM to persist after poweroffs
+/*
+// Define Ardunio pins (Beta board)
+const int OFDMPin = 1;          // LEDs
+const int DSSSPin = 3;          // LEDs
+const int pinMGMT = 5;          // LED
+const int pinCTRL = 4;          // LED
+const int pinDATA = 0;          // LED
+const int plusButton = 2;       // Button
+const int minusButton = 16;     // Button
+*/
+
+// Define Arduino pins (board v1.02, v1.03, and v1.04)
+const int OFDMPin = 4;          // LEDs
+const int DSSSPin = 0;          // LEDs
+const int pinMGMT = 5;          // LED
+const int pinCTRL = 1;          // LED
+const int pinDATA = 3;          // LED
+const int plusButton = 12;      // Button
+const int minusButton = 16;     // Button
+
+int scanChannel = 6;            // Current channel variable, and set it to start on channel 6
 
 // Define intervals and durations
 
-const int minBlinkInterval = 105;        // Minimum amount of time between blinks (not sure this works right now)
+const int minBlinkInterval = 105;       // Minimum amount of time between blinks (not sure this works right now)
 const int blinkDuration = 110;          // Amount of time to keep LED's lit (not sure this works right now)
 const int minButtonInterval = 200;      // Minimum amount of time between button presses
 
@@ -48,55 +67,31 @@ unsigned long previousTimeButton = 0;
 // Create state variables, these track whether the given LED is off (0) or on (1)
 // These should probably be true/false, idk lol!
 
-int stateOFDM = 0;                      // Current state of the OFDM LEDs
-int stateDSSS = 0;                      // Current state of the DSSS LEDs
-int stateMGMT = 0;                      // Current state of the MGMT LED
-int stateCTRL = 0;                      // Current state of the CTRL LED
-int stateDATA = 0;                      // Current state of the DATA LED
-int plusButtonState = 0;                // Current state of plus button
-int minusButtonState = 0;               // Current state of minus button
+int stateOFDM = 0;                 // Current state of the OFDM LEDs
+int stateDSSS = 0;                 // Current state of the DSSS LEDs
+int stateMGMT = 0;                 // Current state of the MGMT LED
+int stateCTRL = 0;                 // Current state of the CTRL LED
+int stateDATA = 0;                 // Current state of the DATA LED
+int plusButtonState = 0;           // Current state of plus button
+int minusButtonState = 0;          // Current state of minus button
 
 // Create scheduling variables, these ensure that only one one thing happens at a time
 
 int processingFrame = 0;           // 0 is not processing a frame, 1 is processing a frame
 
 // Create trigger variables
-// These should probably be true/false, idk lol!
-
 byte triggerOFDM = 0;               // Triggers the OFDM LED, 1 is triggered, 0 is untriggered
 byte triggerDSSS = 0;               // Triggers the DSSS LED, 1 is triggered, 0 is untriggered
 byte triggerMGMT = 0;               // Triggers the MGMT LED, 1 is triggered, 0 is untriggered
 byte triggerCTRL = 0;               // Triggers the CTRL LED, 1 is triggered, 0 is untriggered
 byte triggerDATA = 0;               // Triggers the DATA LED, 1 is triggered, 0 is untriggered
 
-// Define Arduino pins (Beta board)
-
-/*
-  const int OFDMPin = 1;          // LEDs
-  const int DSSSPin = 3;          // LEDs
-  const int pinMGMT = 5;          // LED
-  const int pinCTRL = 4;          // LED
-  const int pinDATA = 0;          // LED
-  const int plusButton = 2;       // Button
-  const int minusButton = 16;     // Button
-*/
-
-// Define Arduino pins (board v1.02, v1.03, and v1.04)
-const int OFDMPin = 4;          // LEDs
-const int DSSSPin = 0;          // LEDs
-const int pinMGMT = 5;          // LED
-const int pinCTRL = 1;          // LED
-const int pinDATA = 3;          // LED
-const int plusButton = 12;      // Button
-const int minusButton = 16;     // Button
-
 // Define display pins (Same on all revisions)
 sevensegment Display(14, 15, 13, 2); //CLK, LOAD/CS, DIN, Num of Digits
 
 byte serialEnable = HIGH;       // Controls whether serial output is enabled or not
 
-void setup()
-{
+void setup() {
 
   // Define pin modes for inputs and outputs
   pinMode(OFDMPin, OUTPUT);
@@ -105,33 +100,7 @@ void setup()
   pinMode(pinCTRL, OUTPUT);
   pinMode(pinDATA, OUTPUT);
   pinMode(plusButton, INPUT);
-  pinMode(minusButton, INPUT); 
-
-  //Initialize display and test
-  Display.Begin();
-  Display.Update(88);
-  delay(300);
-
-  // Test LED's
-  digitalWrite(DSSSPin, HIGH);
-  Display.Update(20);
-  delay(200);
-  
-  digitalWrite(OFDMPin, HIGH);
-  Display.Update(40);
-  delay(200);
-
-  digitalWrite(pinDATA, HIGH);
-  Display.Update(60);
-  delay(200);
-
-  digitalWrite(pinCTRL, HIGH);
-  Display.Update(80);
-  delay(200);
-
-  digitalWrite(pinMGMT, HIGH);
-  Display.Update(99);
-  delay(400);
+  pinMode(minusButton, INPUT);
 
   // Check to see if the "+" button has been pressed to enable serial
   serialEnable = digitalRead(plusButton);
@@ -139,19 +108,35 @@ void setup()
   if (serialEnable == HIGH) {
     Display.Update(50);
     Serial.begin(115200);
-    Serial.print("Starting serial output!");
+    Serial.print("Welcome to the Packet Potato. Serial output is enabled.");
   }
 
-  digitalWrite(pinMGMT, LOW);
-  delay(150);
-  digitalWrite(pinCTRL, LOW);
-  delay(150);
-  digitalWrite(pinDATA, LOW);
-  delay(150);
-  digitalWrite(OFDMPin, LOW);
-  delay(150);
-  digitalWrite(DSSSPin, LOW);
-  delay(150);
+  //Initialize display
+  Display.Begin();
+
+  // Loop through numbers 0-99
+  for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
+      Display.Update(initDisplay);
+      if (initDisplay >= 25) { digitalWrite(DSSSPin, HIGH); }
+      if (initDisplay >= 40) { digitalWrite(OFDMPin, HIGH); }
+      if (initDisplay >= 55) { digitalWrite(pinDATA, HIGH); }
+      if (initDisplay >= 70) { digitalWrite(pinCTRL, HIGH); }
+      if (initDisplay >= 85) { digitalWrite(pinMGMT, HIGH); }
+      delay(25);
+  }
+
+  delay(500);
+
+  // Loop through numbers 0-99
+  for (int initDisplay = 99 ; initDisplay >= scanChannel ; initDisplay--) {
+      Display.Update(initDisplay);
+      if (initDisplay <= 25) { digitalWrite(DSSSPin, LOW); }
+      if (initDisplay <= 40) { digitalWrite(OFDMPin, LOW); }
+      if (initDisplay <= 55) { digitalWrite(pinDATA, LOW); }
+      if (initDisplay <= 70) { digitalWrite(pinCTRL, LOW); }
+      if (initDisplay <= 85) { digitalWrite(pinMGMT, LOW); }
+      delay(25);
+  }
 
   // Set display to current channel
   Display.Update(scanChannel);
@@ -269,7 +254,7 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
 
   String type = wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype);
 
-  // Dump the frame type and data rate to serial
+  // Write frame type and data rate to serial
   if (serialEnable == HIGH) {
     Serial.print("Frame type: ");
     Serial.print(type);
