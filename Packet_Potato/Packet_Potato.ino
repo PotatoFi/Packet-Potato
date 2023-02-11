@@ -454,7 +454,6 @@ void resetScanning() {
   WiFi.disconnect();
 
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
-  //   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
   wifi_promiscuous_enable(1);
   wifi_set_channel(scanChannel);
 }
