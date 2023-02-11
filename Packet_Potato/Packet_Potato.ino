@@ -14,9 +14,7 @@ extern "C" {
   WARNING: This code is super messy! It works, but there's a LOT of stuff commented out and it's very far from clean. Planned updates:
   - Configurable RSSI threshold
   - Blink only DSSS or OFDM, but never both simultaneously
-  - DATA, MGMT, and CTRL LEDs depending on the received frame type
   - Disable Wi-Fi scanning during blinks to save battery power
-  - This is a test of git
 */
 
 /*
@@ -41,11 +39,14 @@ const int minusButton = 16;     // Button
 
 int scanChannel = 6;            // Current channel variable, and set it to start on channel 6
 
+unsigned dataRate = 0;
+
 // Define intervals and durations
 
 const int minBlinkInterval = 105;       // Minimum amount of time between blinks (not sure this works right now)
 const int blinkDuration = 110;          // Amount of time to keep LED's lit (not sure this works right now)
 const int minButtonInterval = 200;      // Minimum amount of time between button presses
+const int minScreenUpdateInterval = 100;
 
 // Define tickers to keep track of time
 
@@ -89,7 +90,9 @@ byte triggerDATA = 0;               // Triggers the DATA LED, 1 is triggered, 0 
 // Define display pins (Same on all revisions)
 sevensegment Display(14, 15, 13, 2); //CLK, LOAD/CS, DIN, Num of Digits
 
-byte serialEnable = HIGH;       // Controls whether serial output is enabled or not
+byte serialEnable = LOW;            // HIGH to enable serial output
+byte rateEnable = LOW;
+byte rssiEnable = LOW;
 
 void setup() {
 
@@ -102,17 +105,15 @@ void setup() {
   pinMode(plusButton, INPUT);
   pinMode(minusButton, INPUT);
 
-  // Check to see if the "+" button has been pressed to enable serial
-  serialEnable = digitalRead(plusButton);
-
-  if (serialEnable == HIGH) {
-    Display.Update(50);
+  if (serialEnable) {
+    Display.Update(99);
     Serial.begin(115200);
-    Serial.print("Welcome to the Packet Potato. Serial output is enabled.");
+    Serial.print("\n");
+    Serial.print("Welcome to the Packet Potato. Serial output is enabled at 115200 baud.");
+    Serial.print("\n");
   }
 
-  //Initialize display
-  Display.Begin();
+  Display.Begin(); //Initialize display
 
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
@@ -125,8 +126,11 @@ void setup() {
       delay(25);
   }
 
-  delay(500);
-
+  // Check buttons
+  delay(250); 
+  rateEnable = digitalRead(plusButton);
+  rssiEnable = digitalRead(minusButton);
+  
   // Loop through numbers 0-99
   for (int initDisplay = 99 ; initDisplay >= scanChannel ; initDisplay--) {
       Display.Update(initDisplay);
@@ -155,6 +159,7 @@ void setup() {
 struct RxControl {
   signed rssi: 8; // signal intensity of packet
   unsigned rate: 4;
+  // signed rate: 8; 
   unsigned is_group: 1;
   unsigned: 1;
   unsigned sig_mode: 2;         // 0:is 11n packet; 1:is not 11n packet;
@@ -224,15 +229,6 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
   // Pointer to the frame control section within the packet header
   const wifi_header_frame_control_t *frame_ctrl = (wifi_header_frame_control_t *)&hdr->frame_ctrl;
 
-  // This is a fun thing to flash the current rate on the display instead of the channel but it's so fast it's mostly useless
-  /*
-    if (ppkt->rx_ctrl.rate == 0) {
-      Display.Update(ppkt->rx_ctrl.mcs);
-    } else {
-      Display.Update(ppkt->rx_ctrl.rate);
-    }
-  */
-
   // rate = 0 when an MCS encoding is used. This logic still works, but be wary of using the rate variable alone.
   switch ( ppkt->rx_ctrl.rate) {
     case 1:
@@ -254,6 +250,25 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
 
   String type = wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype);
 
+  unsigned long currentTime = millis();
+
+  // Show RSSI on screen, if enabled
+  if ((rssiEnable) && (currentTime - previousTime >= minScreenUpdateInterval)) {
+    dataRate = ppkt->rx_ctrl.rssi * -1;       // Convert RSSI to a positive number
+    Display.Update(dataRate);
+    previousTime = currentTime;               // Reset the timer
+  }
+
+  // Show rate on screen, if enabled
+  if ((rateEnable) && (currentTime - previousTime >= minScreenUpdateInterval)) {
+    if (ppkt->rx_ctrl.rate == 0) {
+      Display.Update(ppkt->rx_ctrl.mcs);
+    } else {
+      Display.Update(ppkt->rx_ctrl.rate);
+    }
+    previousTime = currentTime;               // Reset the timer
+  }
+
   // Write frame type and data rate to serial
   if (serialEnable == HIGH) {
     Serial.print("Frame type: ");
@@ -264,6 +279,9 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
     Serial.print("\n");
     Serial.print("MCS: ");
     Serial.print(ppkt->rx_ctrl.mcs);
+    Serial.print("\n");
+    Serial.print("RSSI: ");
+    Serial.print(ppkt->rx_ctrl.rssi);
     Serial.print("\n");
     Serial.print("\n");
   }
