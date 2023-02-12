@@ -10,95 +10,57 @@ extern "C" {
 #include "user_interface.h"
 }
 
-/*
-  WARNING: This code is super messy! It works, but there's a LOT of stuff commented out and it's very far from clean. Planned updates:
-  - Configurable RSSI threshold
-  - Blink only DSSS or OFDM, but never both simultaneously
-  - Disable Wi-Fi scanning during blinks to save battery power
-*/
-
-/*
-// Define Ardunio pins (Beta board)
-const int OFDMPin = 1;          // LEDs
-const int DSSSPin = 3;          // LEDs
-const int pinMGMT = 5;          // LED
-const int pinCTRL = 4;          // LED
-const int pinDATA = 0;          // LED
-const int plusButton = 2;       // Button
-const int minusButton = 16;     // Button
-*/
-
 // Define Arduino pins (board v1.02, v1.03, and v1.04)
-const int OFDMPin = 4;          // LEDs
-const int DSSSPin = 0;          // LEDs
+const int pinOFDM = 4;          // LEDs
+const int pinDSSS = 0;          // LEDs
 const int pinMGMT = 5;          // LED
 const int pinCTRL = 1;          // LED
 const int pinDATA = 3;          // LED
 const int plusButton = 12;      // Button
 const int minusButton = 16;     // Button
+sevensegment Display(14, 15, 13, 2);
+
+/*
+// Define Ardunio pins (Beta board)
+const int pinOFDM = 1;          // LEDs
+const int pinDSSS = 3;          // LEDs
+const int pinMGMT = 5;          // LED
+const int pinCTRL = 4;          // LED
+const int pinDATA = 0;          // LED
+const int plusButton = 2;       // Button
+const int minusButton = 16;     // Button
+sevensegment Display(14, 15, 13, 2);
+*/
 
 int scanChannel = 6;            // Current channel variable, and set it to start on channel 6
-
-unsigned dataRate = 0;
+unsigned frameRate = 0;
+unsigned frameRSSI = 0;
+byte frameType = 0;
+unsigned frameDisplay = 0;      // Used to write special frame data to the display
 
 // Define intervals and durations
-
-const int minBlinkInterval = 105;       // Minimum amount of time between blinks (not sure this works right now)
-const int blinkDuration = 110;          // Amount of time to keep LED's lit (not sure this works right now)
+const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is good
+const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
 const int minButtonInterval = 200;      // Minimum amount of time between button presses
-const int minScreenUpdateInterval = 100;
 
-// Define tickers to keep track of time
+// Define timers
+unsigned long whenPressed = 0;
+unsigned long whenBlinked = 0;
 
-unsigned long currentTime = 0;          // Not currently used
-unsigned long previousTime = 0;         // Not currently used
-unsigned long currentTimeDSSS = 0;
-unsigned long currentTimeOFDM = 0;
-unsigned long currentTimeMGMT = 0;
-unsigned long currentTimeDATA = 0;
-unsigned long currentTimeCTRL = 0;
-unsigned long currentTimeButton = 0;
-unsigned long previousTimeDSSS = 0;
-unsigned long previousTimeOFDM = 0;
-unsigned long previousTimeMGMT = 0;
-unsigned long previousTimeDATA = 0;
-unsigned long previousTimeCTRL = 0;
-unsigned long previousTimeButton = 0;
+// State variables
+boolean plusButtonState = false;
+boolean minusButtonState = false;
+boolean blinkingState = false;
 
-// Create state variables, these track whether the given LED is off (0) or on (1)
-// These should probably be true/false, idk lol!
-
-int stateOFDM = 0;                 // Current state of the OFDM LEDs
-int stateDSSS = 0;                 // Current state of the DSSS LEDs
-int stateMGMT = 0;                 // Current state of the MGMT LED
-int stateCTRL = 0;                 // Current state of the CTRL LED
-int stateDATA = 0;                 // Current state of the DATA LED
-int plusButtonState = 0;           // Current state of plus button
-int minusButtonState = 0;          // Current state of minus button
-
-// Create scheduling variables, these ensure that only one one thing happens at a time
-
-int processingFrame = 0;           // 0 is not processing a frame, 1 is processing a frame
-
-// Create trigger variables
-byte triggerOFDM = 0;               // Triggers the OFDM LED, 1 is triggered, 0 is untriggered
-byte triggerDSSS = 0;               // Triggers the DSSS LED, 1 is triggered, 0 is untriggered
-byte triggerMGMT = 0;               // Triggers the MGMT LED, 1 is triggered, 0 is untriggered
-byte triggerCTRL = 0;               // Triggers the CTRL LED, 1 is triggered, 0 is untriggered
-byte triggerDATA = 0;               // Triggers the DATA LED, 1 is triggered, 0 is untriggered
-
-// Define display pins (Same on all revisions)
-sevensegment Display(14, 15, 13, 2); //CLK, LOAD/CS, DIN, Num of Digits
-
-byte serialEnable = LOW;            // HIGH to enable serial output
-byte rateEnable = LOW;
-byte rssiEnable = LOW;
+boolean serialEnable = false;
+boolean rateEnable = false;
+boolean rssiEnable = false;
 
 void setup() {
 
   // Define pin modes for inputs and outputs
-  pinMode(OFDMPin, OUTPUT);
-  pinMode(DSSSPin, OUTPUT);
+  pinMode(pinOFDM, OUTPUT);
+  pinMode(pinDSSS, OUTPUT);
   pinMode(pinMGMT, OUTPUT);
   pinMode(pinCTRL, OUTPUT);
   pinMode(pinDATA, OUTPUT);
@@ -118,8 +80,8 @@ void setup() {
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
       Display.Update(initDisplay);
-      if (initDisplay >= 25) { digitalWrite(DSSSPin, HIGH); }
-      if (initDisplay >= 40) { digitalWrite(OFDMPin, HIGH); }
+      if (initDisplay >= 25) { digitalWrite(pinDSSS, HIGH); }
+      if (initDisplay >= 40) { digitalWrite(pinOFDM, HIGH); }
       if (initDisplay >= 55) { digitalWrite(pinDATA, HIGH); }
       if (initDisplay >= 70) { digitalWrite(pinCTRL, HIGH); }
       if (initDisplay >= 85) { digitalWrite(pinMGMT, HIGH); }
@@ -134,8 +96,8 @@ void setup() {
   // Loop through numbers 0-99
   for (int initDisplay = 99 ; initDisplay >= scanChannel ; initDisplay--) {
       Display.Update(initDisplay);
-      if (initDisplay <= 25) { digitalWrite(DSSSPin, LOW); }
-      if (initDisplay <= 40) { digitalWrite(OFDMPin, LOW); }
+      if (initDisplay <= 25) { digitalWrite(pinDSSS, LOW); }
+      if (initDisplay <= 40) { digitalWrite(pinOFDM, LOW); }
       if (initDisplay <= 55) { digitalWrite(pinDATA, LOW); }
       if (initDisplay <= 70) { digitalWrite(pinCTRL, LOW); }
       if (initDisplay <= 85) { digitalWrite(pinMGMT, LOW); }
@@ -214,8 +176,8 @@ struct sniffer_buf2 {         // I have absolutely no idea what is going on here
 */
 
 // This is the new handler, stolen mostly from https://github.com/n0w/esp8266-simple-sniffer/blob/master/src/main.cpp
-void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
-{
+void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
+    
   // First layer: type cast the received buffer into our generic SDK structure
   const wifi_promiscuous_pkt_t *ppkt = (wifi_promiscuous_pkt_t *)buff;
 
@@ -229,239 +191,110 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
   // Pointer to the frame control section within the packet header
   const wifi_header_frame_control_t *frame_ctrl = (wifi_header_frame_control_t *)&hdr->frame_ctrl;
 
-  // rate = 0 when an MCS encoding is used. This logic still works, but be wary of using the rate variable alone.
-  switch ( ppkt->rx_ctrl.rate) {
-    case 1:
-      triggerDSSS = 1;
-      break;
-    case 2:
-      triggerDSSS = 1;
-      break;
-    case 5.5:
-      triggerDSSS = 1;
-      break;
-    case 11:
-      triggerDSSS = 1;
-      break;
-    default:
-      triggerOFDM = 1;
-      break;
-  }
-
+  // This seems to have something to do with the frame subtype
   String type = wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype);
 
-  unsigned long currentTime = millis();
+  if ((millis() - whenBlinked >= minBlinkInterval) && blinkingState == false) {
+    blinkingState = true;
 
-  // Show RSSI on screen, if enabled
-  if ((rssiEnable) && (currentTime - previousTime >= minScreenUpdateInterval)) {
-    dataRate = ppkt->rx_ctrl.rssi * -1;       // Convert RSSI to a positive number
-    Display.Update(dataRate);
-    previousTime = currentTime;               // Reset the timer
-  }
-
-  // Show rate on screen, if enabled
-  if ((rateEnable) && (currentTime - previousTime >= minScreenUpdateInterval)) {
-    if (ppkt->rx_ctrl.rate == 0) {
-      Display.Update(ppkt->rx_ctrl.mcs);
-    } else {
-      Display.Update(ppkt->rx_ctrl.rate);
+    // Show RSSI on screen, if enabled
+    if (rssiEnable) {
+      frameDisplay = ppkt->rx_ctrl.rssi * -1;       // Convert RSSI to a positive number
     }
-    previousTime = currentTime;               // Reset the timer
-  }
 
-  // Write frame type and data rate to serial
-  if (serialEnable == HIGH) {
-    Serial.print("Frame type: ");
-    Serial.print(type);
-    Serial.print("\n");
-    Serial.print("Data Rate: ");
-    Serial.print(ppkt->rx_ctrl.rate);
-    Serial.print("\n");
-    Serial.print("MCS: ");
-    Serial.print(ppkt->rx_ctrl.mcs);
-    Serial.print("\n");
-    Serial.print("RSSI: ");
-    Serial.print(ppkt->rx_ctrl.rssi);
-    Serial.print("\n");
-    Serial.print("\n");
-  }
+    // Show rate or MCS on screen, if enabled
+    if (rateEnable) {
+      if (ppkt->rx_ctrl.rate == 0) {frameDisplay = ppkt->rx_ctrl.mcs; }
+      else {frameDisplay = ppkt->rx_ctrl.rate; }
+    }
 
-  String mgmt = "Mgmt:";
-  // This is bad and could be improved by just checking the type and not the subtype like the called function does
-  if (type == "Data") {
-    triggerDATA = 1;
-    //Serial.print("Data\n");
-  } else if (type == "Control") {
-    triggerCTRL = 1;
-    //Serial.print("Control\n");
-  } else if (strstr(type.c_str(), mgmt.c_str())) { // See if the string "Mgmt:" is a substring of the type
-    triggerMGMT = 1;
-  } else {
-    /*Serial.print("Unknown frame type: ");
-    Serial.print(type);
-    Serial.print("\n");*/
-  }
+    String mgmt = "Mgmt:";
+    // This is bad and could be improved by just checking the type and not the subtype like the called function does
+    if (type == "Data") {
+      frameType = 2;
+    }
+    
+    else if (type == "Control") {
+      frameType = 1;
+    }
+    
+    else if (strstr(type.c_str(), mgmt.c_str())) { // See if the string "Mgmt:" is a substring of the type
+      frameType = 0;
+    }
+    
+    switch ( ppkt->rx_ctrl.rate) {
+      case 1:
+        blinkOn(0,frameType,frameDisplay);
+        break;
+      case 2:
+        blinkOn(0,frameType,frameDisplay);
+        break;
+      case 5.5:
+        blinkOn(0,frameType,frameDisplay);
+        break;
+      case 11:
+        blinkOn(0,frameType,frameDisplay);
+        break;
+      default:
+        blinkOn(1,frameType,frameDisplay);
+        break;
+    }
 
+    if (serialEnable) {
+      Serial.print("Frame type: ");
+      Serial.print(type);
+      Serial.print("\n");
+      Serial.print("Data Rate: ");
+      Serial.print(ppkt->rx_ctrl.rate);
+      Serial.print("\n");
+      Serial.print("MCS: ");
+      Serial.print(ppkt->rx_ctrl.mcs);
+      Serial.print("\n");
+      Serial.print("RSSI: ");
+      Serial.print(ppkt->rx_ctrl.rssi);
+      Serial.print("\n");
+      Serial.print("\n");
+    }
+     
+  }
 }
 
-void capture(uint8_t *buff, uint16_t len)         // This seems to callback whenever a packet is heard?
-{
+void capture(uint8_t *buff, uint16_t len) {      // This seems to callback whenever a packet is heard?
   sniffer_buf2 *data = (sniffer_buf2 *)buff;     // No idea what this does (but *data is a pointer, right?)
-
 }
 
 void loop() {
 
-  // Update timers
-  unsigned long currentTimeDSSS = millis();
-  unsigned long currentTimeOFDM = millis();
-  unsigned long currentTimeMGMT = millis();
-  unsigned long currentTimeCTRL = millis();
-  unsigned long currentTimeDATA = millis();
-  unsigned long currentTimeButton = millis(); // Set the current time for a button press
+  if ((millis() - whenBlinked >= blinkDuration)) {
+    blinkOff();
+    blinkingState = false;
+  }
 
   // Minus button logic
 
   minusButtonState = digitalRead(minusButton); // Check the state of the button, copy to variable
-  if ((minusButtonState == HIGH) && (currentTimeButton - previousTimeButton >= minButtonInterval)) {
+  if ((minusButtonState == HIGH) && (millis() - whenPressed >= minButtonInterval)) {
     scanChannel--;              // Decrease the channel by 1
     if (scanChannel == 00) {    // Write new channel to display
       scanChannel = 13;
     }
     Display.Update(scanChannel); // Write new channel to display
-
-    if (serialEnable == HIGH) {
-      Serial.println("Minus button pressed!");
-      Serial.print("\n");
-      Serial.println("Channel: ");
-      Serial.print(scanChannel);
-      Serial.print("\n");
-      Serial.print("\n");
-    }
-
-    previousTimeButton = currentTimeButton;
+    whenPressed = millis();
     resetScanning();            // Reset scanning so the new channel is used
   }
 
   // Plus button logic
 
   plusButtonState = digitalRead(plusButton); // Check the state of the button, copy to variable
-  if ((plusButtonState == HIGH) && (currentTimeButton - previousTimeButton >= minButtonInterval)) {
+  if ((plusButtonState == HIGH) && (millis() - whenPressed >= minButtonInterval)) {
     scanChannel++; // Increase the channel by 1
     if (scanChannel == 14) {
       scanChannel = 1;
     }
     Display.Update(scanChannel); // Write new channel to display
-
-    if (serialEnable == HIGH) {
-      Serial.println("Plus button pressed!");
-      Serial.print("\n");
-      Serial.println("Channel: ");
-      Serial.print(scanChannel);
-      Serial.print("\n");
-      Serial.print("\n");
-    }
-
-    previousTimeButton = currentTimeButton;
+    whenPressed = millis(); 
     resetScanning();            // Reset scanning so the new channel is used
   }
-
-  // DSSS LEDs Logic
-
-  // Check to see if we need to turn the DSSS LED off
-  if ((stateDSSS == 1) && (currentTimeDSSS - previousTimeDSSS >= blinkDuration)) {      // Check to see if we need to turn DSSS off
-    digitalWrite(DSSSPin, LOW);                                                         // Turn DSSS pin off
-    stateDSSS = 0;                                                                      // Set the DSSS LED state to "off"
-    //Serial.println("DSSS off!");
-    previousTimeDSSS = currentTimeDSSS;                                                 // Reset the timer
-    processingFrame = 0;                                                                // Say that we're no longer processing a frame
-    //scanOn();
-  }
-
-  // Turn the DSSS LED on
-  if ((triggerDSSS == 1) && (currentTimeDSSS - previousTimeDSSS >= minBlinkInterval)) { // Check to see if we need to turn DSSS on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateDSSS = 1;                                                                      // Set DSSS LED state to "on"
-    digitalWrite(DSSSPin, HIGH);                                                        // Turn DSSS LED pin on
-    //Serial.println("DSSS on!");
-    triggerDSSS = 0;                                                                    // Reset the DSSS trigger to "off"
-  }
-
-  // OFDM LEDs Logic
-
-  // Check to see if we need to turn the OFDM LED off
-  if ((stateOFDM == 1) && (currentTimeOFDM - previousTimeOFDM >= blinkDuration)) {      // Check to see if we need to turn OFDM off
-    digitalWrite(OFDMPin, LOW);                                                         // Turn OFDM pin off
-    stateOFDM = 0;                                                                      // Set the OFDM LED state to "off"
-    //Serial.println("OFDM off!");
-    previousTimeOFDM = currentTimeOFDM;                                                 // Reset the timer
-    processingFrame = 0;                                                                // Say that we're no longer processing a frame
-    //scanOn();
-  }
-
-  // Turn the OFDM LED on
-  if ((triggerOFDM == 1) && (currentTimeOFDM - previousTimeOFDM >= minBlinkInterval)) { // Check to see if we need to turn OFDM on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateOFDM = 1;                                                                      // Set OFDM LED state to "on"
-    digitalWrite(OFDMPin, HIGH);                                                        // Turn OFDM LED pin on
-    //Serial.println("OFDM on!");
-    triggerOFDM = 0;                                                                    // Reset the OFDM trigger to "off"
-  }
-
-  // Check to see if we need to turn the MGMT LED off
-  if ((stateMGMT == 1) && (currentTimeMGMT - previousTimeMGMT >= blinkDuration)) {      // Check to see if we need to turn MGMT off
-    digitalWrite(pinMGMT, LOW);                                                         // Turn MGMT pin off
-    stateMGMT = 0;                                                                      // Set the MGMT LED state to "off"
-    //Serial.println("MGMT off!");
-    previousTimeMGMT = currentTimeMGMT;                                                 // Reset the timer
-    processingFrame = 0;                                                                // Say that we're no longer processing a frame
-  }
-
-  // Turn the MGMT LED on
-  if ((triggerMGMT == 1) && (currentTimeMGMT - previousTimeMGMT >= minBlinkInterval)) { // Check to see if we need to turn MGMT on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateMGMT = 1;                                                                      // Set MGMT LED state to "on"
-    digitalWrite(pinMGMT, HIGH);                                                        // Turn MGMT LED pin on
-    //Serial.println("MGMT on!");
-    triggerMGMT = 0;                                                                   // Reset the MGMT trigger to "off"
-  }
-
-  // Check to see if we need to turn the DATA LED off
-  if ((stateDATA == 1) && (currentTimeDATA - previousTimeDATA >= blinkDuration)) {      // Check to see if we need to turn DATA off
-    digitalWrite(pinDATA, LOW);                                                         // Turn DATA pin off
-    stateDATA = 0;                                                                      // Set the DATA LED state to "off"
-    //Serial.println("DATA off!");
-    previousTimeDATA = currentTimeDATA;                                                 // Reset the timer
-    processingFrame = 0;                                                                // Say that we're no longer processing a frame
-  }
-
-  // Turn the DATA LED on
-  if ((triggerDATA == 1) && (currentTimeDATA - previousTimeDATA >= minBlinkInterval)) { // Check to see if we need to turn DATA on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateDATA = 1;                                                                      // Set DATA LED state to "on"
-    digitalWrite(pinDATA, HIGH);                                                        // Turn DATA LED pin on
-    //Serial.println("DATA on!");
-    triggerDATA = 0;                                                                   // Reset the DATA trigger to "off"
-  }
-
-  // Check to see if we need to turn the CTRL LED off
-  if ((stateCTRL == 1) && (currentTimeCTRL - previousTimeCTRL >= blinkDuration)) {      // Check to see if we need to turn CTRL off
-    digitalWrite(pinCTRL, LOW);                                                         // Turn CTRL pin off
-    stateCTRL = 0;                                                                      // Set the CTRL LED state to "off"
-    //Serial.println("CTRL off!");
-    previousTimeCTRL = currentTimeCTRL;                                                 // Reset the timer
-    processingFrame = 0;                                                                // Say that we're no longer processing a frame
-  }
-
-  // Turn the CTRL LED on
-  if ((triggerCTRL == 1) && (currentTimeCTRL - previousTimeCTRL >= minBlinkInterval)) { // Check to see if we need to turn CTRL on
-    processingFrame = 1;                                                                // Say that we're busy processing a frame
-    stateCTRL = 1;                                                                      // Set CTRL LED state to "on"
-    digitalWrite(pinCTRL, HIGH);                                                        // Turn CTRL LED pin on
-    //Serial.println("CTRL on!");
-    triggerCTRL = 0;                                                                   // Reset the CTRL trigger to "off"
-  }
-
 
 }
 
@@ -474,4 +307,34 @@ void resetScanning() {
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
   wifi_promiscuous_enable(1);
   wifi_set_channel(scanChannel);
+}
+
+void blinkOn(boolean modulationType, byte frameType, unsigned frameDisplay) {
+  if (modulationType == 0) {
+    digitalWrite(pinDSSS, HIGH);
+  }
+  if (modulationType == 1) {
+    digitalWrite(pinOFDM, HIGH);
+  }
+  if (frameType == 0) {
+    digitalWrite(pinMGMT, HIGH);
+  }
+  if (frameType == 1) {
+    digitalWrite(pinCTRL, HIGH);
+  }
+  if (frameType == 2) {
+    digitalWrite(pinDATA, HIGH);
+  }
+  if (rateEnable || rssiEnable) {
+    Display.Update(frameDisplay);
+  }
+  whenBlinked = millis(); 
+}
+
+void blinkOff() {
+  digitalWrite(pinDSSS, LOW);
+  digitalWrite(pinOFDM, LOW);
+  digitalWrite(pinMGMT, LOW);
+  digitalWrite(pinCTRL, LOW);
+  digitalWrite(pinDATA, LOW);
 }
