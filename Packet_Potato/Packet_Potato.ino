@@ -32,7 +32,7 @@ const int minusButton = 16;     // Button
 sevensegment Display(14, 15, 13, 2);
 */
 
-int scanChannel = 6;            // Current channel variable, and set it to start on channel 6
+byte scanChannel = 6;            // Current channel variable, and set it to start on channel 6
 unsigned frameRate = 0;
 unsigned frameRSSI = 0;
 byte frameType = 0;
@@ -42,10 +42,12 @@ unsigned frameDisplay = 0;      // Used to write special frame data to the displ
 const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is good
 const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
 const int minButtonInterval = 200;      // Minimum amount of time between button presses
+const int minChannelDisplayInterval = 2000;
 
 // Define timers
 unsigned long whenPressed = 0;
 unsigned long whenBlinked = 0;
+unsigned long whenChannelDisplay = 0;
 
 // State variables
 boolean plusButtonState = false;
@@ -275,11 +277,12 @@ void loop() {
   minusButtonState = digitalRead(minusButton); // Check the state of the button, copy to variable
   if ((minusButtonState == HIGH) && (millis() - whenPressed >= minButtonInterval)) {
     scanChannel--;              // Decrease the channel by 1
-    if (scanChannel == 00) {    // Write new channel to display
+    if (scanChannel == 0) {    // Write new channel to display
       scanChannel = 13;
     }
     Display.Update(scanChannel); // Write new channel to display
     whenPressed = millis();
+    whenChannelDisplay = millis();
     resetScanning();            // Reset scanning so the new channel is used
   }
 
@@ -293,6 +296,7 @@ void loop() {
     }
     Display.Update(scanChannel); // Write new channel to display
     whenPressed = millis(); 
+    whenChannelDisplay = millis();
     resetScanning();            // Reset scanning so the new channel is used
   }
 
@@ -325,7 +329,7 @@ void blinkOn(boolean modulationType, byte frameType, unsigned frameDisplay) {
   if (frameType == 2) {
     digitalWrite(pinDATA, HIGH);
   }
-  if (rateEnable || rssiEnable) {
+  if ((rateEnable || rssiEnable) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
     Display.Update(frameDisplay);
   }
   whenBlinked = millis(); 
