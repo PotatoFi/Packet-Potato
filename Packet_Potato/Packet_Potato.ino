@@ -41,22 +41,27 @@ unsigned frameDisplay = 0;      // Used to write special frame data to the displ
 // Define intervals and durations
 const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is good
 const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
-const int minButtonInterval = 200;      // Minimum amount of time between button presses
+const int shortPressInterval = 200;
+const int longPressInterval = 1000;
 const int minChannelDisplayInterval = 2000;
 
 // Define timers
-unsigned long whenPressed = 0;
+unsigned long whenPlusPressed = 0;
+unsigned long whenMinusPressed = 0;
 unsigned long whenBlinked = 0;
 unsigned long whenChannelDisplay = 0;
 
 // State variables
 boolean plusButtonState = false;
 boolean minusButtonState = false;
+boolean plusButtonEvent = false;
+boolean minusButtonEvent = false;
 boolean blinkingState = false;
 
 boolean serialEnable = false;
-boolean rateEnable = false;
-boolean rssiEnable = false;
+boolean modeRate = false;
+boolean modeRSSI = false;
+byte displayMode = 0; // 0 is normal, 1 is RSSI, 2 is rate/MCS
 
 void setup() {
 
@@ -68,14 +73,6 @@ void setup() {
   pinMode(pinDATA, OUTPUT);
   pinMode(plusButton, INPUT);
   pinMode(minusButton, INPUT);
-
-  if (serialEnable) {
-    Display.Update(99);
-    Serial.begin(115200);
-    Serial.print("\n");
-    Serial.print("Welcome to the Packet Potato. Serial output is enabled at 115200 baud.");
-    Serial.print("\n");
-  }
 
   Display.Begin(); //Initialize display
 
@@ -90,10 +87,9 @@ void setup() {
       delay(25);
   }
 
-  // Check buttons
-  delay(250); 
-  rateEnable = digitalRead(plusButton);
-  rssiEnable = digitalRead(minusButton);
+  delay(125);
+  serialEnable = digitalRead(minusButton);
+  delay(125);
   
   // Loop through numbers 0-99
   for (int initDisplay = 99 ; initDisplay >= scanChannel ; initDisplay--) {
@@ -103,7 +99,14 @@ void setup() {
       if (initDisplay <= 55) { digitalWrite(pinDATA, LOW); }
       if (initDisplay <= 70) { digitalWrite(pinCTRL, LOW); }
       if (initDisplay <= 85) { digitalWrite(pinMGMT, LOW); }
-      delay(25);
+      delay(10);
+  }
+
+  if (serialEnable) {
+    Serial.begin(115200);
+    Serial.print("\n");
+    Serial.print("Welcome to the Packet Potato. Serial output is enabled at 115200 baud.");
+    Serial.print("\n");
   }
 
   // Set display to current channel
@@ -200,12 +203,12 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
     blinkingState = true;
 
     // Show RSSI on screen, if enabled
-    if (rssiEnable) {
+    if (displayMode == 1) {
       frameDisplay = ppkt->rx_ctrl.rssi * -1;       // Convert RSSI to a positive number
     }
 
     // Show rate or MCS on screen, if enabled
-    if (rateEnable) {
+    if (displayMode == 2) {
       if (ppkt->rx_ctrl.rate == 0) {frameDisplay = ppkt->rx_ctrl.mcs; }
       else {frameDisplay = ppkt->rx_ctrl.rate; }
     }
@@ -268,36 +271,57 @@ void capture(uint8_t *buff, uint16_t len) {      // This seems to callback whene
 void loop() {
 
   if ((millis() - whenBlinked >= blinkDuration)) {
-    blinkOff();
+    allOff();
     blinkingState = false;
   }
 
-  // Minus button logic
+  // Check to see when the right button is pressed, and start a timer
+  plusButtonState = digitalRead(plusButton); // Check button state
+  if ((plusButtonState == HIGH) && (plusButtonEvent == false) && (millis() - whenPlusPressed >= shortPressInterval)) { 
+    whenPlusPressed = millis();
+    plusButtonEvent = true;
+  }
 
-  minusButtonState = digitalRead(minusButton); // Check the state of the button, copy to variable
-  if ((minusButtonState == HIGH) && (millis() - whenPressed >= minButtonInterval)) {
+  // Check to see if the button was released before the long press threshold
+  if ((plusButtonState == LOW) && (plusButtonEvent == true) && (millis() - whenPlusPressed <= longPressInterval)) {
+      scanChannel++; // Increase the channel by 1
+      if (scanChannel == 14) {
+        scanChannel = 1;
+      }
+      Display.Update(scanChannel); // Write new channel to display 
+      whenChannelDisplay = millis();
+      resetScanning();            // Reset scanning so the new channel is used
+      plusButtonEvent = false;
+  }
+
+
+  // If the long press threshold is exceeded, register a long button press
+  if ((plusButtonState == HIGH) && (millis() - whenPlusPressed >= longPressInterval)) {
+      displayMode++;
+      if (displayMode == 3) {
+        displayMode = 0;
+      }
+      indicateDisplayMode();
+      plusButtonEvent = false;
+  }
+
+  // Check to see when the left button was pressed, and start a timer
+  minusButtonState = digitalRead(minusButton); // Check button state
+  if ((minusButtonState == HIGH) && (minusButtonEvent == false) && (millis() - whenMinusPressed >= shortPressInterval)) { 
+    whenMinusPressed = millis();
+    minusButtonEvent = true;
+  }
+
+  // Check to see if the button was released before the long press threshold
+  if ((minusButtonState == LOW) && (minusButtonEvent == true) && (millis() - whenMinusPressed <= longPressInterval)) {
     scanChannel--;              // Decrease the channel by 1
     if (scanChannel == 0) {    // Write new channel to display
       scanChannel = 13;
     }
     Display.Update(scanChannel); // Write new channel to display
-    whenPressed = millis();
     whenChannelDisplay = millis();
     resetScanning();            // Reset scanning so the new channel is used
-  }
-
-  // Plus button logic
-
-  plusButtonState = digitalRead(plusButton); // Check the state of the button, copy to variable
-  if ((plusButtonState == HIGH) && (millis() - whenPressed >= minButtonInterval)) {
-    scanChannel++; // Increase the channel by 1
-    if (scanChannel == 14) {
-      scanChannel = 1;
-    }
-    Display.Update(scanChannel); // Write new channel to display
-    whenPressed = millis(); 
-    whenChannelDisplay = millis();
-    resetScanning();            // Reset scanning so the new channel is used
+    minusButtonEvent = false;
   }
 
 }
@@ -329,16 +353,95 @@ void blinkOn(boolean modulationType, byte frameType, unsigned frameDisplay) {
   if (frameType == 2) {
     digitalWrite(pinDATA, HIGH);
   }
-  if ((rateEnable || rssiEnable) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
+  if ((displayMode != 0) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
     Display.Update(frameDisplay);
   }
   whenBlinked = millis(); 
 }
 
-void blinkOff() {
+void allOff() {
   digitalWrite(pinDSSS, LOW);
   digitalWrite(pinOFDM, LOW);
   digitalWrite(pinMGMT, LOW);
   digitalWrite(pinCTRL, LOW);
   digitalWrite(pinDATA, LOW);
+}
+
+void indicateDisplayMode() {
+  wifi_set_opmode(STATION_MODE);
+  wifi_promiscuous_enable(0);
+  WiFi.disconnect();
+  allOff();
+
+  if (displayMode == 0) {
+    delay(100);
+    digitalWrite(pinDATA, HIGH);
+    delay(100);
+    digitalWrite(pinCTRL, HIGH);
+    delay(100);
+    digitalWrite(pinMGMT, HIGH);
+    delay(100);
+    digitalWrite(pinDATA, LOW);
+    delay(100);
+    digitalWrite(pinCTRL, LOW);
+    delay(100);
+    digitalWrite(pinMGMT, LOW);
+    delay(100);
+      for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
+        digitalWrite(pinDATA, HIGH);
+        delay(100);
+        digitalWrite(pinDATA, LOW);
+        delay(100);
+      }
+    Display.Update(scanChannel);
+    }
+
+  if (displayMode == 1) {
+    delay(100);
+    digitalWrite(pinDATA, HIGH);
+    delay(100);
+    digitalWrite(pinCTRL, HIGH);
+    delay(100);
+    digitalWrite(pinMGMT, HIGH);
+    delay(100);
+    digitalWrite(pinDATA, LOW);
+    delay(100);
+    digitalWrite(pinCTRL, LOW);
+    delay(100);
+    digitalWrite(pinMGMT, LOW);
+    delay(100);
+      for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
+        digitalWrite(pinCTRL, HIGH);
+        delay(100);
+        digitalWrite(pinCTRL, LOW);
+        delay(100);
+      }
+  }
+
+  if (displayMode == 2) {
+    delay(100);
+    digitalWrite(pinDATA, HIGH);
+    delay(100);
+    digitalWrite(pinCTRL, HIGH);
+    delay(100);
+    digitalWrite(pinMGMT, HIGH);
+    delay(100);
+    digitalWrite(pinDATA, LOW);
+    delay(100);
+    digitalWrite(pinCTRL, LOW);
+    delay(100);
+    digitalWrite(pinMGMT, LOW);
+    delay(100);
+      for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
+        digitalWrite(pinMGMT, HIGH);
+        delay(100);
+        digitalWrite(pinMGMT, LOW);
+        delay(100);
+      }
+  }
+  
+  wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
+  wifi_promiscuous_enable(1);
+  wifi_set_channel(scanChannel);
+  whenChannelDisplay = 0;
 }
