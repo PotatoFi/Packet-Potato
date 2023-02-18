@@ -46,15 +46,15 @@ Apply power, and after a short startup animation, the Packet Potato will begin p
 ## Display Modes
 
 There are three display modes:
-- *Channel*: Displays the current channel on screen (default)
-- *Signal Strength*: Displays the signal strength of the last frame, in RSSI (negative number is implied)
-- *Rate/MCS*: Displays the data rate or MCS of the last frame
+- **Channel**: Displays the current channel on screen (default)
+- **Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
+- **Rate/MCS**: Displays the data rate or MCS of the last frame
 
 To switch modes, long-press the "+" button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected.
 
-- *DATA*: Channel
-- *CTRL*: Signal Strength
-- *MGMT*: Rate/MCS
+- **DATA**: Channel
+- **CTRL**: Signal Strength
+- **MGMT**: Rate/MCS
 
 ## Serial Output
 
