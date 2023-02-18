@@ -2,7 +2,7 @@
 
 The Packet Potato is a Wi-Fi packet analyzer! Or... is it a spectrum analyzer? Well, nobody really knows, but either way, it's the worst one of those two things, ever.
 
-The Packet Potato uses an ESP8266 that listens for 802.11 frames on a specific channel. The channel is configurable by pressing the "+" and "-" buttons, and displayed on the 14-segment display. As it receives a frame, it blinks the appropriate LED's to indicate some things about the 802.11 frame that it heard.
+The Packet Potato uses an ESP8266 that listens for 802.11 frames on a specific channel. The channel is configurable by pressing the `+` and `-` buttons, and displayed on the 14-segment display. As it receives a frame, it blinks the appropriate LED's to indicate some things about the 802.11 frame that it heard.
 
 The Packet Potato has five sets of indicators:
 * DSSS - Blinks once whenever a data rate of 1, 2, 5.5, and 11 is heard
@@ -50,7 +50,7 @@ There are three display modes:
 - **Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
 - **Rate/MCS**: Displays the data rate or MCS of the last frame
 
-To switch modes, long-press the "+" button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected.
+To switch modes, long-press the `+` button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected.
 
 - **DATA**: Channel
 - **CTRL**: Signal Strength
@@ -58,4 +58,4 @@ To switch modes, long-press the "+" button. The DATA, CTRL, and DATA LEDs will b
 
 ## Serial Output
 
-The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down "-" during the start-up animation, specifically while the red MGMT LED turns red.
+The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` during the start-up animation, specifically while the red MGMT LED turns red.
