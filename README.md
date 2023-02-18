@@ -39,12 +39,23 @@ The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board f
 17. Go to `Tools` > `Ports`, and select the appropriate port *(Note: this is the easiest step to get wrong, so double-check that you've selected the right port. If something doesn't work, come back to this step and try another port.)*
 18. Load the Packet Potato Arduino Sketch, compile, and upload.
 
-# Unfinished Code
+# Usage
 
-There are a lot of features that are un-implemented on the Packet Potato.
+Apply power, and after a short startup animation, the Packet Potato will begin packet analysis! Or spectrum analysis. Which is it again?
 
-* Data, Management, and Control Frame parsing are completely unimplemented
-* I think I'm reading the bit that indicates data rate incorrectly
-* Timing, as in when LED's are turned on and off, doesn't seem to be working correctly at all
+## Display Modes
 
-There's a lot of work left to do!
+There are three display modes:
+- *Channel*: Displays the current channel on screen (default)
+- *Signal Strength*: Displays the signal strength of the last frame, in RSSI (negative number is implied)
+- *Rate/MCS*: Displays the data rate or MCS of the last frame
+
+To switch modes, long-press the "+" button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected.
+
+- *DATA*: Channel
+- *CTRL*: Signal Strength
+- *MGMT*: Rate/MCS
+
+## Serial Output
+
+The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down "-" during the start-up animation, specifically while the red MGMT LED turns red.
