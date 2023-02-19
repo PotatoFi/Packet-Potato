@@ -19,9 +19,9 @@ Note that the TX/RX pins on the WeMos D1 Mini are used to drive the CTRL and DAT
 
 The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board for the ESP8266. The ESP8266 is the brains of the operation.
 
-##Arduino IDE 2.x
+## Arduino IDE 2.x
 
-##macOS
+### macOS
 
 1. Download and install the Ardunio IDE from https://arduino.cc/en/main/software.
 2. Download and unzip the latest Packet Potato release from ___
@@ -32,11 +32,11 @@ The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board f
 6. Click **Tools > CPU Frequency > 160 MHz**
 6. Click **Upload**
 
-##Windows
+### Windows
 
 Coming soonish.
 
-##Ardunio 1.x
+## Ardunio 1.x
 
 1. Download and install the Ardunio 1.0 software.
 2. Launch the Arduino software.
