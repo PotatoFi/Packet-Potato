@@ -42,7 +42,7 @@ The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board f
 
 # Usage
 
-Apply power, and after a short startup animation, the Packet Potato will begin packet analysis! Or spectrum analysis. Which is it again?
+Apply power, and after a short startup sequence, the Packet Potato will begin packet analysis! Or spectrum analysis. Which is it again?
 
 ## Display Modes
 
@@ -59,4 +59,4 @@ To switch modes, long-press the `+` button. The DATA, CTRL, and DATA LEDs will b
 
 ## Serial Output
 
-The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` during the start-up animation, specifically while the red MGMT LED turns red.
+The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` during the start-up sequence, specifically while the red MGMT LED turns red.
