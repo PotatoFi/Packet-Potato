@@ -37,6 +37,7 @@ The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board f
 15. **Windows:** Complete the driver installation.
 16. Back in the Arduino application, go to `Tools` > `Ports`, and select `WeMos D1 R1` in the menu.
 17. Go to `Tools` > `Ports`, and select the appropriate port *(Note: this is the easiest step to get wrong, so double-check that you've selected the right port. If something doesn't work, come back to this step and try another port.)*
+18. Download the Packet Potato firmware from the releases page: https://github.com/PotatoFi/Packet-Potato/releases
 18. Load the Packet Potato Arduino Sketch, compile, and upload.
 
 # Usage
