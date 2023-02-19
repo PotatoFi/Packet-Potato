@@ -28,7 +28,7 @@ The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board f
 6. Go to `Tools` > `Board` > `Boards Manager…`
 7. In the search box at the top, type `ESP8266`, and press enter.
 8. When the installation is complete, click `Close`.
-9. Windows Users Only: Download the CH350 driver (which is the serial adapter built into the WeMos D1 Mini): https://wiki.wemos.cc/downloads.
+9. **Windows Users Only**: Download the CH350 driver (which is the serial adapter built into the WeMos D1 Mini): https://www.wemos.cc/en/latest/ch340_driver.html
 10. **Windows Users Only:** Extract the contents of the .zip file using Windows Explorer.
 11. **Windows:** Using the Search function in the Windows Start menu, open up Device Manager.
 12. **Windows:** Connect the WeMos D1 Mini to your computer via MicroUSB cable.
