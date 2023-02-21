@@ -33,10 +33,10 @@ sevensegment Display(14, 15, 13, 2);
 */
 
 byte scanChannel = 6;            // Current channel variable, and set it to start on channel 6
-unsigned frameRate = 0;
+byte frameModulation = 0;
 unsigned frameRSSI = 0;
 byte frameType = 0;
-unsigned frameDisplay = 0;      // Used to write special frame data to the display
+float frameRate = 0;
 
 // Define intervals and durations
 const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is good
@@ -59,9 +59,7 @@ boolean minusButtonEvent = false;
 boolean blinkingState = false;
 
 boolean serialEnable = false;
-boolean modeRate = false;
-boolean modeRSSI = false;
-byte displayMode = 0; // 0 is normal, 1 is RSSI, 2 is rate/MCS
+byte displayMode = 0;                 // 0 is normal, 1 is RSSI, 2 is rate/MCS
 
 void setup() {
 
@@ -88,7 +86,11 @@ void setup() {
   }
 
   delay(125);
-  serialEnable = digitalRead(minusButton);
+  
+  if (digitalRead(minusButton) || digitalRead(plusButton)) {
+    serialEnable = true;
+  }
+  
   delay(125);
   
   // Loop through numbers 0-99
@@ -124,9 +126,8 @@ void setup() {
 }
 
 struct RxControl {
-  signed rssi: 8; // signal intensity of packet
+  signed rssi: 8;
   unsigned rate: 4;
-  // signed rate: 8; 
   unsigned is_group: 1;
   unsigned: 1;
   unsigned sig_mode: 2;         // 0:is 11n packet; 1:is not 11n packet;
@@ -202,17 +203,6 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
   if ((millis() - whenBlinked >= minBlinkInterval) && blinkingState == false) {
     blinkingState = true;
 
-    // Show RSSI on screen, if enabled
-    if (displayMode == 1) {
-      frameDisplay = ppkt->rx_ctrl.rssi * -1;       // Convert RSSI to a positive number
-    }
-
-    // Show rate or MCS on screen, if enabled
-    if (displayMode == 2) {
-      if (ppkt->rx_ctrl.rate == 0) {frameDisplay = ppkt->rx_ctrl.mcs; }
-      else {frameDisplay = ppkt->rx_ctrl.rate; }
-    }
-
     String mgmt = "Mgmt:";
     // This is bad and could be improved by just checking the type and not the subtype like the called function does
     if (type == "Data") {
@@ -226,23 +216,66 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
     else if (strstr(type.c_str(), mgmt.c_str())) { // See if the string "Mgmt:" is a substring of the type
       frameType = 0;
     }
+
+    // Convert RSSI, if the display mode is enabled
+    if (displayMode == 1) {
+      frameRSSI = ppkt->rx_ctrl.rssi * -1;       // Convert RSSI to a positive number
+    }
     
-    switch ( ppkt->rx_ctrl.rate) {
-      case 1:
-        blinkOn(0,frameType,frameDisplay);
-        break;
-      case 2:
-        blinkOn(0,frameType,frameDisplay);
-        break;
-      case 5.5:
-        blinkOn(0,frameType,frameDisplay);
-        break;
-      case 11:
-        blinkOn(0,frameType,frameDisplay);
-        break;
-      default:
-        blinkOn(1,frameType,frameDisplay);
-        break;
+    if (ppkt->rx_ctrl.mcs != 0) {
+      blinkOn(1,frameType,ppkt->rx_ctrl.mcs,frameRSSI);
+    }
+    else {
+      switch (ppkt->rx_ctrl.rate) { // 0 is DSSS, 1 is OFDM
+        case 0:
+          frameRate = 1;
+          blinkOn(0,frameType,frameRate,frameRSSI);
+          break;
+        case 1:
+          frameRate = 2;
+          blinkOn(0,frameType,frameRate,frameRSSI);
+          break;
+        case 2:
+          frameRate = 5.5;
+          blinkOn(0,frameType,frameRate,frameRSSI);
+          break;
+        case 3:
+          frameRate = 11;
+          blinkOn(0,frameType,frameRate,frameRSSI);
+          break;
+        case 11:
+          frameRate = 6; 
+          blinkOn(1,frameType,frameRate,frameRSSI);
+          break;
+        case 15:
+          frameRate = 9;
+          blinkOn(1,frameType,frameRate,frameRSSI);
+          break;
+        case 10:
+          frameRate = 12;
+          blinkOn(1,frameType,frameRate,frameRSSI);
+          break;
+        case 14:
+          frameRate = 18;
+          blinkOn(1,frameType,frameRate,frameRSSI);
+          break;
+        case 9:
+          frameRate = 24;
+          blinkOn(1,frameType,frameRate,frameRSSI);
+          break;
+        case 13:
+          frameRate = 36;
+          blinkOn(1,frameType,frameRate,frameRSSI);
+          break;
+        case 8:
+          frameRate = 48;
+          blinkOn(1,frameType,frameRate,frameRSSI);
+          break;
+        case 12:
+          frameRate = 54;
+          blinkOn(1,frameType,frameRate,frameRSSI);
+          break;
+      }
     }
 
     if (serialEnable) {
@@ -250,7 +283,7 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
       Serial.print(type);
       Serial.print("\n");
       Serial.print("Data Rate: ");
-      Serial.print(ppkt->rx_ctrl.rate);
+      Serial.print(frameRate);
       Serial.print("\n");
       Serial.print("MCS: ");
       Serial.print(ppkt->rx_ctrl.mcs);
@@ -271,7 +304,7 @@ void capture(uint8_t *buff, uint16_t len) {      // This seems to callback whene
 void loop() {
 
   if ((millis() - whenBlinked >= blinkDuration)) {
-    allOff();
+    blinkOff();
     blinkingState = false;
   }
 
@@ -337,7 +370,7 @@ void resetScanning() {
   wifi_set_channel(scanChannel);
 }
 
-void blinkOn(boolean modulationType, byte frameType, unsigned frameDisplay) {
+void blinkOn(boolean modulationType, byte frameType, float displayRate, int displayRSSI) {
   if (modulationType == 0) {
     digitalWrite(pinDSSS, HIGH);
   }
@@ -353,13 +386,16 @@ void blinkOn(boolean modulationType, byte frameType, unsigned frameDisplay) {
   if (frameType == 2) {
     digitalWrite(pinDATA, HIGH);
   }
-  if ((displayMode != 0) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
-    Display.Update(frameDisplay);
+  if ((displayMode == 1) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
+    Display.Update(displayRSSI);
+  }
+    if ((displayMode == 2) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
+    Display.Update(displayRate);
   }
   whenBlinked = millis(); 
 }
 
-void allOff() {
+void blinkOff() {
   digitalWrite(pinDSSS, LOW);
   digitalWrite(pinOFDM, LOW);
   digitalWrite(pinMGMT, LOW);
@@ -371,7 +407,7 @@ void indicateDisplayMode() {
   wifi_set_opmode(STATION_MODE);
   wifi_promiscuous_enable(0);
   WiFi.disconnect();
-  allOff();
+  blinkOff();
 
   if (displayMode == 0) {
     delay(100);
