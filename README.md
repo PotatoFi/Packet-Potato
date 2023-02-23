@@ -72,12 +72,12 @@ There are three display modes:
 - **Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
 - **Rate/MCS**: Displays the data rate or MCS of the last frame
 
-To switch modes, long-press the `+` button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected.
+To switch modes, long-press the `+` button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected. The screen will also show which mode is selected.
 
-- **DATA**: Channel
-- **CTRL**: Signal Strength
-- **MGMT**: Rate/MCS
+- **DATA** and `ch`: Channel
+- **CTRL** and `St`: Signal Strength
+- **MGMT** and `ra`: Rate/MCS
 
 ## Serial Output
 
-The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` during the start-up sequence, specifically while the red MGMT LED turns red.
+The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` at any time while "Potato" scrolls across the display, and until "Potato" disappears.
