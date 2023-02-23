@@ -26,7 +26,7 @@ The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board f
 ### macOS
 
 1. Download and install the Ardunio IDE from https://arduino.cc/en/main/software.
-2. Download and unzip the latest Packet Potato release from ___
+2. Download and unzip the latest Packet Potato release from the releases page: https://github.com/PotatoFi/Packet-Potato/releases
 3. In the Ardunio IDE, point to Ardunio IDE > Open and select Packet_Potato.ino from the unzipped files.
 4. Click the **Select Board** dropdown, and click `Selet other board and port...`
 5. In the search box under **Boards**, search for `LOLIN(WEMOS) D1 R2 & mini`
