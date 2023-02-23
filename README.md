@@ -11,9 +11,34 @@ The Packet Potato has five sets of indicators:
 * MGMT - Blinks once whenever a management frame is heard
 * CTRL - Blinks once whenever a control frame is heard
 
+# Usage
+
+Apply power, and after a short startup sequence, the Packet Potato will begin packet analysis! Or spectrum analysis. Which is it again?
+
+## Display Modes
+
+There are three display modes:
+- **Channel**: Displays the current channel on screen (default).
+- **Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
+- **Data Rate/MCS**: Displays the data rate or MCS of the last frame.
+
+To switch modes, long-press the `+` button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected. The screen will also show which mode is selected.
+
+- **DATA** and `ch`: Channel
+- **CTRL** and `St`: Signal Strength
+- **MGMT** and `ra`: Rate/MCS
+
+## Serial Output
+
+The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` at any time while "Potato" scrolls across the display, and until "Potato" disappears.
+
+Note that the TX/RX pins on the WeMos D1 Mini are used to drive the CTRL and DATA LED's, so whenever serial is in use, those two LED's will illuminate. There weren't enough pins on the WeMos. Is potato.
+
+## Power
+
 You can power the Packet Potato with either a 3.7v lipo battery, or microUSB. Just be careful not to power it with both at the same time... it probably would not end well. Also, be careful about polarity, as JST connectors don't have standardized polarity. If you get a battery from Adafruit, you should be good.
 
-Note that the TX/RX pins on the WeMos D1 Mini are used to drive the CTRL and DATA LED's, so whenever serial is in use, those two LED's will illuminate. It won't hurt anything... we just ran out of pins on the WeMos.
+## Display
 
 The display is controlled with a MAX7219: https://www.analog.com/media/en/technical-documentation/data-sheets/max7219-max7221.pdf
 
@@ -60,24 +85,3 @@ Coming soonish.
 17. Go to `Tools` > `Ports`, and select the appropriate port *(Note: this is the easiest step to get wrong, so double-check that you've selected the right port. If something doesn't work, come back to this step and try another port.)*
 18. Download the Packet Potato firmware from the releases page: https://github.com/PotatoFi/Packet-Potato/releases
 18. Load the Packet Potato Arduino Sketch, compile, and upload.
-
-# Usage
-
-Apply power, and after a short startup sequence, the Packet Potato will begin packet analysis! Or spectrum analysis. Which is it again?
-
-## Display Modes
-
-There are three display modes:
-- **Channel**: Displays the current channel on screen (default)
-- **Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
-- **Rate/MCS**: Displays the data rate or MCS of the last frame
-
-To switch modes, long-press the `+` button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected. The screen will also show which mode is selected.
-
-- **DATA** and `ch`: Channel
-- **CTRL** and `St`: Signal Strength
-- **MGMT** and `ra`: Rate/MCS
-
-## Serial Output
-
-The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` at any time while "Potato" scrolls across the display, and until "Potato" disappears.
