@@ -15,6 +15,8 @@ You can power the Packet Potato with either a 3.7v lipo battery, or microUSB. Ju
 
 Note that the TX/RX pins on the WeMos D1 Mini are used to drive the CTRL and DATA LED's, so whenever serial is in use, those two LED's will illuminate. It won't hurt anything... we just ran out of pins on the WeMos.
 
+The display is controlled with a MAX7219: https://www.analog.com/media/en/technical-documentation/data-sheets/max7219-max7221.pdf
+
 # Flashing the WeMos D1 Mini
 
 The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board for the ESP8266. The ESP8266 is the brains of the operation.
