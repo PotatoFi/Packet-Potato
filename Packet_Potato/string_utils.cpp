@@ -28,33 +28,33 @@ const char* wifi_pkt_type2str(wifi_promiscuous_pkt_type_t type, wifi_mgmt_subtyp
       switch(subtype)
       {
     	   case ASSOCIATION_REQ:
-         return "Mgmt: Association request";
+         return "Management (Association Request)";
          case ASSOCIATION_RES:
-         return "Mgmt: Association response";
+         return "Management (Association Response)";
          case REASSOCIATION_REQ:
-         return "Mgmt: Reassociation request";
+         return "Management (Reassociation Request)";
          case REASSOCIATION_RES:
-         return "Mgmt: Reassociation response";
+         return "Management (Reassociation Response)";
          case PROBE_REQ:
-         return "Mgmt: Probe request";
+         return "Management (Probe Request)";
          case PROBE_RES:
-         return "Mgmt: Probe response";
+         return "Management (Probe Response)";
          case BEACON:
-         return "Mgmt: Beacon frame";
+         return "Management (Beacon)";
          case ATIM:
-         return "Mgmt: ATIM";
+         return "Management (ATIM";
          case DISASSOCIATION:
-         return "Mgmt: Dissasociation";
+         return "Management (Dissasociation)";
          case AUTHENTICATION:
-         return "Mgmt: Authentication";
+         return "Management (Authentication)";
          case DEAUTHENTICATION:
-         return "Mgmt: Deauthentication";
+         return "Management (Deauthentication)";
          case ACTION:
-         return "Mgmt: Action";
+         return "Management (Action)";
          case ACTION_NACK:
-         return "Mgmt: Action no ack";
+         return "Management (Action No Ack)";
     	default:
-        return "Mgmt: Unsupported/error";
+        return "Management (Unsupported)";
       }
 
     case WIFI_PKT_CTRL:
@@ -65,5 +65,20 @@ const char* wifi_pkt_type2str(wifi_promiscuous_pkt_type_t type, wifi_mgmt_subtyp
 
     default:
       return "Unsupported/error";
+  }
+}
+
+byte getFrameType(wifi_promiscuous_pkt_type_t type)
+{
+  switch(type)
+  {
+    case WIFI_PKT_MGMT:
+    return 0;
+
+    case WIFI_PKT_CTRL:
+    return 1;
+
+    case WIFI_PKT_DATA:
+    return 2;
   }
 }

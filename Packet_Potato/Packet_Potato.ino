@@ -54,7 +54,6 @@ sevensegment Display(14, 15, 13, 2);
 byte scanChannel = 6;            // Current channel variable, and set it to start on channel 6
 byte frameModulation = 0;
 unsigned frameRSSI = 0;
-byte frameType = 0;
 float frameRate = 0;
 
 // Define intervals and durations
@@ -111,7 +110,19 @@ void setup() {
   display.writeCustom(A, t);
   delay(100);
   display.writeCustom(t, o);
-  delay(800);
+  
+  delay(500);
+  if (digitalRead(minusButton) || digitalRead(plusButton)) {
+    serialEnable = true;
+  }
+  delay(500);
+
+  if (serialEnable) {
+    Serial.begin(115200);
+    Serial.print("\n");
+    Serial.print("Welcome to the Packet Potato. Serial output is enabled at 115200 baud.");
+    Serial.print("\n");
+  }
 
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
@@ -124,13 +135,7 @@ void setup() {
       delay(25);
   }
 
-  delay(125);
-  
-  if (digitalRead(minusButton) || digitalRead(plusButton)) {
-    serialEnable = true;
-  }
-  
-  delay(125);
+  delay(250);
   
   // Loop through numbers 0-99
   for (int initDisplay = 99 ; initDisplay >= scanChannel ; initDisplay--) {
@@ -141,13 +146,6 @@ void setup() {
       if (initDisplay <= 70) { digitalWrite(pinCTRL, LOW); }
       if (initDisplay <= 85) { digitalWrite(pinMGMT, LOW); }
       delay(10);
-  }
-
-  if (serialEnable) {
-    Serial.begin(115200);
-    Serial.print("\n");
-    Serial.print("Welcome to the Packet Potato. Serial output is enabled at 115200 baud.");
-    Serial.print("\n");
   }
 
   // Set display to current channel
@@ -223,7 +221,7 @@ struct sniffer_buf2 {         // I have absolutely no idea what is going on here
 // This is the new handler, stolen mostly from https://github.com/n0w/esp8266-simple-sniffer/blob/master/src/main.cpp
 void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
     
-  // First layer: type cast the received buffer into our generic SDK structure
+  // First layer: type cast the received buffer into the generic SDK structure
   const wifi_promiscuous_pkt_t *ppkt = (wifi_promiscuous_pkt_t *)buff;
 
   // Second layer: define pointer to where the actual 802.11 packet is within the structure
@@ -236,25 +234,11 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
   // Pointer to the frame control section within the packet header
   const wifi_header_frame_control_t *frame_ctrl = (wifi_header_frame_control_t *)&hdr->frame_ctrl;
 
-  // This seems to have something to do with the frame subtype
-  String type = wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype);
+  // Get the frame type
+  byte frameType = getFrameType((wifi_promiscuous_pkt_type_t)frame_ctrl->type);
 
   if ((millis() - whenBlinked >= minBlinkInterval) && blinkingState == false) {
     blinkingState = true;
-
-    String mgmt = "Mgmt:";
-    // This is bad and could be improved by just checking the type and not the subtype like the called function does
-    if (type == "Data") {
-      frameType = 2;
-    }
-    
-    else if (type == "Control") {
-      frameType = 1;
-    }
-    
-    else if (strstr(type.c_str(), mgmt.c_str())) { // See if the string "Mgmt:" is a substring of the type
-      frameType = 0;
-    }
 
     // Convert RSSI, if the display mode is enabled
     if (displayMode == 1) {
@@ -318,15 +302,24 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
     }
 
     if (serialEnable) {
-      Serial.print("Frame type: ");
+      // Get strings for the subframe type
+      String type = wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype);
+      Serial.print("Frame Type: ");
       Serial.print(type);
       Serial.print("\n");
+      
+      if (ppkt->rx_ctrl.mcs != 0) {
+        Serial.print("MCS: ");
+        Serial.print(ppkt->rx_ctrl.mcs);
+        Serial.print("\n");
+      }
+      
+      else {
       Serial.print("Data Rate: ");
       Serial.print(frameRate);
       Serial.print("\n");
-      Serial.print("MCS: ");
-      Serial.print(ppkt->rx_ctrl.mcs);
-      Serial.print("\n");
+      }
+
       Serial.print("RSSI: ");
       Serial.print(ppkt->rx_ctrl.rssi);
       Serial.print("\n");

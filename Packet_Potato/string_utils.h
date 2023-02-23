@@ -8,5 +8,6 @@
 
 void mac2str(const uint8_t* ptr, char* string);
 const char* wifi_pkt_type2str(wifi_promiscuous_pkt_type_t type, wifi_mgmt_subtypes_t subtype);
+byte getFrameType(wifi_promiscuous_pkt_type_t type);
 
 #endif
