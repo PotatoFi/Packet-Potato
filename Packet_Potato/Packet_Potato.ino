@@ -27,6 +27,7 @@ extern "C" {
 #define P             (B01100111)
 #define A             (B01110111)
 #define O             (B01111110)
+#define E             (B01001111)
 //                      PABCDEFG
 sevenSegment display(14, 15, 13, 2);
 
@@ -52,6 +53,7 @@ sevensegment Display(14, 15, 13, 2);
 */
 
 byte scanChannel = 6;            // Current channel variable, and set it to start on channel 6
+signed minRSSI = -65;
 byte frameModulation = 0;
 unsigned frameRSSI = 0;
 float frameRate = 0;
@@ -61,13 +63,16 @@ const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is
 const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
 const int shortPressInterval = 250;
 const int longPressInterval = 750;
-const int minChannelDisplayInterval = 2000;
+const int minChannelDisplayInterval = 2000; // more generic name needed, such as minDisplayPersist
+const int signalFlashDuration = 1000;            // In signal threshold mode, how long to show signal on screen
+const int signalFlashInterval = 1250;            // In signal threshold mode, how long to blank the screen
 
 // Define timers
 unsigned long whenPlusPressed = 0;
 unsigned long whenMinusPressed = 0;
 unsigned long whenBlinked = 0;
-unsigned long whenChannelDisplay = 0;
+unsigned long whenChannelDisplay = 0;       // More generic name needed, such as whenDisplayPersist
+unsigned long whenSignalFlash = 0;
 
 // State variables
 boolean plusButtonState = false;
@@ -75,8 +80,10 @@ boolean minusButtonState = false;
 boolean plusButtonEvent = false;
 boolean minusButtonEvent = false;
 boolean blinkingState = false;
+boolean signalFlashState = false;
 
 boolean serialEnable = false;
+boolean signalMode = false;
 byte displayMode = 0;                 // 0 is normal, 1 is RSSI, 2 is rate/MCS
 
 void setup() {
@@ -123,7 +130,7 @@ void setup() {
     Serial.print("Welcome to the Packet Potato. Serial output is enabled at 115200 baud.");
     Serial.print("\n");
   }
-
+/*
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
       display.write(initDisplay);
@@ -147,6 +154,8 @@ void setup() {
       if (initDisplay <= 85) { digitalWrite(pinMGMT, LOW); }
       delay(10);
   }
+
+  */
 
   // Set display to current channel
   display.write(scanChannel);
@@ -237,7 +246,7 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
   // Get the frame type
   byte frameType = getFrameType((wifi_promiscuous_pkt_type_t)frame_ctrl->type);
 
-  if ((millis() - whenBlinked >= minBlinkInterval) && blinkingState == false) {
+  if ((millis() - whenBlinked >= minBlinkInterval) && (blinkingState == false) && (ppkt->rx_ctrl.rssi >= minRSSI)) {
     blinkingState = true;
 
     // Convert RSSI, if the display mode is enabled
@@ -340,56 +349,65 @@ void loop() {
     blinkingState = false;
   }
 
-  // Check to see when the right button is pressed, and start a timer
+  // Start timer for plus button press
   plusButtonState = digitalRead(plusButton); // Check button state
   if ((plusButtonState == HIGH) && (plusButtonEvent == false) && (millis() - whenPlusPressed >= shortPressInterval)) { 
     whenPlusPressed = millis();
     plusButtonEvent = true;
   }
 
-  // Check to see if the button was released before the long press threshold
+  // Plus button short press
   if ((plusButtonState == LOW) && (plusButtonEvent == true) && (millis() - whenPlusPressed <= longPressInterval)) {
-      scanChannel++; // Increase the channel by 1
-      if (scanChannel == 14) {
-        scanChannel = 1;
-      }
-      display.write(scanChannel); // Write new channel to display 
-      whenChannelDisplay = millis();
-      resetScanning();            // Reset scanning so the new channel is used
-      plusButtonEvent = false;
+    if (signalMode == true) { inputSignalUp(); }
+    else {inputChannelUp(); }
+    plusButtonEvent = false;
   }
 
 
-  // If the long press threshold is exceeded, register a long button press
+  // Plus button long press
   if ((plusButtonState == HIGH) && (millis() - whenPlusPressed >= longPressInterval)) {
-      displayMode++;
-      if (displayMode == 3) {
-        displayMode = 0;
-      }
-      indicateDisplayMode();
-      plusButtonEvent = false;
+    if (signalMode == true) {inputSignalAccept(); }
+    else {inputModeSwitch(); }
+    plusButtonEvent = false;
   }
 
-  // Check to see when the left button was pressed, and start a timer
+  // Start a timer for a minus button press
   minusButtonState = digitalRead(minusButton); // Check button state
   if ((minusButtonState == HIGH) && (minusButtonEvent == false) && (millis() - whenMinusPressed >= shortPressInterval)) { 
     whenMinusPressed = millis();
     minusButtonEvent = true;
   }
 
-  // Check to see if the button was released before the long press threshold
+  // Minus button short press
   if ((minusButtonState == LOW) && (minusButtonEvent == true) && (millis() - whenMinusPressed <= longPressInterval)) {
-    scanChannel--;              // Decrease the channel by 1
-    if (scanChannel == 0) {    // Write new channel to display
-      scanChannel = 13;
-    }
-    display.write(scanChannel); // Write new channel to display
-    whenChannelDisplay = millis();
-    resetScanning();            // Reset scanning so the new channel is used
+    if (signalMode == true) {inputSignalDown(); }
+    else {inputChannelDown(); }   
     minusButtonEvent = false;
   }
 
+  // Minus button long press
+  if ((minusButtonState == HIGH) && (millis() - whenMinusPressed >= longPressInterval)) {
+    if (signalMode == true) {inputSignalAccept(); }
+    else {inputSignalSet(); }
+    minusButtonEvent = false;
+  }
+
+  if (signalMode == true) {
+    if ((signalFlashState == false) && (millis() - whenSignalFlash >= 1000)) { // signalFlashInterval
+      display.writeCustom(BLANK, BLANK);
+      whenSignalFlash = millis();
+      signalFlashState = true;
+    }
+    if ((signalFlashState == true) && (millis() - whenSignalFlash >= 200)) { // signalFlashDuration
+      display.write(minRSSI * -1);
+      whenSignalFlash = millis();
+      signalFlashState = false;  
+    }
+    
+  }
+
 }
+
 
 // Reset scanning, used whenever we change channels with the buttons
 void resetScanning() {
@@ -518,4 +536,90 @@ void indicateDisplayMode() {
   wifi_promiscuous_enable(1);
   wifi_set_channel(scanChannel);
   whenChannelDisplay = 0;
+}
+
+void inputChannelUp() {
+      scanChannel++;                // Increase the channel by 1
+      if (scanChannel == 14) {
+        scanChannel = 1;
+      }
+      display.write(scanChannel);   // Write new channel to display 
+      whenChannelDisplay = millis();
+      resetScanning();              // Reset scanning so the new channel is used
+}
+
+void inputChannelDown() {
+  scanChannel--;                    // Decrease the channel by 1
+  if (scanChannel == 0) {
+    scanChannel = 13;
+  }
+  display.write(scanChannel);       // Write new channel to display
+  whenChannelDisplay = millis();
+  resetScanning();                  // Reset scanning so the new channel is used
+}
+
+void inputModeSwitch() {
+  displayMode++;
+  if (displayMode == 3) {
+    displayMode = 0;
+  }
+  indicateDisplayMode();
+}
+
+void inputSignalSet() {
+  display.writeCustom(S,E);
+  delay(100);
+  digitalWrite(pinDATA, HIGH);
+  delay(100);
+  digitalWrite(pinCTRL, HIGH);
+  delay(100);
+  digitalWrite(pinMGMT, HIGH);
+  delay(100);
+  digitalWrite(pinMGMT, LOW);
+  delay(100);
+  digitalWrite(pinCTRL, LOW);
+  delay(100);
+  digitalWrite(pinDATA, LOW);
+  delay(100);
+  signalMode = true;
+}
+
+void inputSignalAccept() {
+  display.write(minRSSI * -1);
+  digitalWrite(pinMGMT, HIGH);
+  delay(100);
+  digitalWrite(pinCTRL, HIGH);
+  delay(100);
+  digitalWrite(pinDATA, HIGH);
+  delay(100);
+  digitalWrite(pinMGMT, LOW);
+  delay(100);
+  digitalWrite(pinCTRL, LOW);
+  delay(100);
+  digitalWrite(pinDATA, LOW);
+  delay(100);
+  signalMode = false;
+  display.write(scanChannel);
+}
+
+void inputSignalUp() {
+  minRSSI = minRSSI + 5;
+  if (minRSSI == -20) {
+    minRSSI = -95;
+  }
+  display.write(minRSSI * -1);
+  whenChannelDisplay = millis();
+  whenSignalFlash = millis();
+  signalFlashState = false;
+}
+
+void inputSignalDown() {
+  minRSSI = minRSSI - 5;
+  if (minRSSI == -100) {
+    minRSSI = -25;
+  }
+  display.write(minRSSI * -1);
+  whenChannelDisplay = millis();
+  whenSignalFlash = millis();
+  signalFlashState = false;
 }
