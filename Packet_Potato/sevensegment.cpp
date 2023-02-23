@@ -1,7 +1,7 @@
-#include "sevensegment.h"
+#include "sevenSegment.h"
 #include <Arduino.h>
 
-const byte digit_pattern[16] =
+const byte digitPattern[19] = // was 16 before I started to add stuff
 {
   B01111110,  // 0
   B00110000,  // 1
@@ -21,73 +21,110 @@ const byte digit_pattern[16] =
   B01000111   // F
 };
 
-int _pinClk;
+int _pinClock;
 int _pinLoad;
 int _pinData;
 int _numDigits;
+// byte counter;
+byte oldScreen;
+byte nowScreen;
 
 //Assign Pins
-sevensegment::sevensegment(int pinclk, int pinload, int pindata, int numdig)
+sevenSegment::sevenSegment(int pinClock, int pinLoad, int pinData, int numDig)
 {
-  _pinClk = pinclk;
-  _pinLoad = pinload;
-  _pinData = pindata;
-  _numDigits = numdig;
+  _pinClock = pinClock;
+  _pinLoad = pinLoad;
+  _pinData = pinData;
+  _numDigits = numDig;
 
-  pinMode(_pinClk, OUTPUT);
-  pinMode(_pinLoad, OUTPUT);    
+  pinMode(_pinClock, OUTPUT);
+  pinMode(_pinLoad, OUTPUT);
   pinMode(_pinData, OUTPUT);
 }
 
-//Update Numbers into Registers
-void sevensegment::Update(unsigned int number)
+// Write numbers to registers
+void sevenSegment::write(unsigned int number)
 {
 
-  unsigned int digit_value;
-  byte byte_data;
-    
+  unsigned int digitValue;
+  byte byteData;
+
   //Turn off display
-  set_register(MAX7219_SHUTDOWN_REG, MAX7219_OFF);
+  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_OFF);
 
   for (int i = 0; i < _numDigits; i++)
-  {
-    digit_value = number % DIGIT_BASE;
-    number /= DIGIT_BASE;
+    {
+      digitValue = number % DIGIT_BASE;
+      number /= DIGIT_BASE;
 
-    byte_data = digit_pattern[digit_value];
+      byteData = digitPattern[digitValue];
 
-  // not sure what this is for
-  //    if (counter % _numDigits == i)
-  //    {
-  //      byte_data |= DP_FLAG;
-  //    }
+      /*
+      // This seems to add decimal places
+          if (counter % _numDigits == i)
+          {
+            byteData |= DP_FLAG;
+          }
+      */
 
-  //Set Register for this digit
-  set_register(MAX7219_DIGIT_REG(i), byte_data);
-  }
-  //Turn display back on
-  set_register(MAX7219_SHUTDOWN_REG, MAX7219_ON);
+      // Set Register for this digit
+      setRegister(MAX7219_DIGIT_REG(i), byteData);
+      if (i == 0) {
+        oldScreen = byteData;
+      }
+
+      // If the leading number is 0, clear it
+      if (i == 1 && byteData == B01111110) {
+        setRegister(MAX7219_DIGIT_REG(1), BLANK);
+      }
+    }
+  // Turn display back on
+  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_ON);
 }
 
-void sevensegment::Begin()
-{  
+// Write custom characters to the display
+void sevenSegment::writeCustom(byte leftNewScreen, byte rightNewScreen) {
+  //byte nowScreen;
+  setRegister(MAX7219_DIGIT_REG(1), BLANK);           // Clear the display
+  setRegister(MAX7219_DIGIT_REG(0), BLANK);
+  setRegister(MAX7219_DIGIT_REG(1), leftNewScreen);   // Write to the display
+  setRegister(MAX7219_DIGIT_REG(0), rightNewScreen);
+  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_ON);      // Turn the display on
+  rightNewScreen = nowScreen;                         // Remember the screen
+}
+
+// Add segments without clearing the display
+void sevenSegment::add(byte side, byte newScreen) {
+  //byte nowScreen;                                   // Create the nowScreen variable
+  nowScreen = oldScreen | newScreen;                // Binary OR to merge old and new
+  setRegister(MAX7219_DIGIT_REG(side), nowScreen);  // Write to the display
+  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_ON);    // Turn the display on
+  oldScreen = nowScreen;                            // Remember the screen
+}
+
+void sevenSegment::initialize()
+{
   // disable test mode. datasheet table 10
-  set_register(MAX7219_DISPLAYTEST_REG, MAX7219_OFF);
+  setRegister(MAX7219_DISPLAYTEST_REG, MAX7219_OFF);
   // set medium intensity. datasheet table 7
-  set_register(MAX7219_INTENSITY_REG, 0x2); ///was 0x8
+  setRegister(MAX7219_INTENSITY_REG, 0x2); // was 0x8
   // turn off display. datasheet table 3
-  set_register(MAX7219_SHUTDOWN_REG, MAX7219_OFF);
+  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_OFF);
   // drive 8 digits. datasheet table 8
-  set_register(MAX7219_SCANLIMIT_REG, 1); // was 7
+  setRegister(MAX7219_SCANLIMIT_REG, 1); // was 7
   // no decode mode for all positions. datasheet table 4
-  set_register(MAX7219_DECODE_REG, B00000000);
+  setRegister(MAX7219_DECODE_REG, B00000000);
+}
+
+void sevenSegment::off() {
+  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_OFF);
 }
 
 //Use to update single registers on MAX7219
-void sevensegment::set_register(byte address, byte value)  
+void sevenSegment::setRegister(byte address, byte value)
 {
   digitalWrite(_pinLoad, LOW);
-  shiftOut(_pinData, _pinClk, MSBFIRST, address);
-  shiftOut(_pinData, _pinClk, MSBFIRST, value);
+  shiftOut(_pinData, _pinClock, MSBFIRST, address);
+  shiftOut(_pinData, _pinClock, MSBFIRST, value);
   digitalWrite(_pinLoad, HIGH);
 }

@@ -10,15 +10,34 @@ extern "C" {
 #include "user_interface.h"
 }
 
+// Define special characters and display info
+#define LEFT_DISPLAY  (1)
+#define RIGHT_DISPLAY (0)
+#define DECIMAL       (B10000000)
+#define BLANK         (B00000000)
+#define n             (B00010101)
+#define c             (B00001101)
+#define h             (B00010111)
+#define r             (B00000101)
+#define S             (B01011011)
+#define d             (B00111101)
+#define t             (B00001111)
+#define o             (B00011101)
+#define a             (B10011101)
+#define P             (B01100111)
+#define A             (B01110111)
+#define O             (B01111110)
+//                      PABCDEFG
+sevenSegment display(14, 15, 13, 2);
+
 // Define Arduino pins (board v1.02, v1.03, and v1.04)
-const int pinOFDM = 4;          // LEDs
-const int pinDSSS = 0;          // LEDs
-const int pinMGMT = 5;          // LED
-const int pinCTRL = 1;          // LED
-const int pinDATA = 3;          // LED
-const int plusButton = 12;      // Button
-const int minusButton = 16;     // Button
-sevensegment Display(14, 15, 13, 2);
+const int pinOFDM = 4;
+const int pinDSSS = 0;
+const int pinMGMT = 5;
+const int pinCTRL = 1;
+const int pinDATA = 3;
+const int plusButton = 12;
+const int minusButton = 16;
 
 /*
 // Define Ardunio pins (Beta board)
@@ -41,8 +60,8 @@ float frameRate = 0;
 // Define intervals and durations
 const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is good
 const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
-const int shortPressInterval = 200;
-const int longPressInterval = 1000;
+const int shortPressInterval = 250;
+const int longPressInterval = 750;
 const int minChannelDisplayInterval = 2000;
 
 // Define timers
@@ -72,11 +91,31 @@ void setup() {
   pinMode(plusButton, INPUT);
   pinMode(minusButton, INPUT);
 
-  Display.Begin(); //Initialize display
+  display.initialize();
+
+  /*
+  display.writeCustom(P, o);
+  delay(350);
+  display.writeCustom(t, A);
+  delay(350);
+  display.writeCustom(t, o);
+  delay(350);
+  */
+
+  display.writeCustom(P, o);
+  delay(400);
+  display.writeCustom(o, t);
+  delay(100);
+  display.writeCustom(t, A);
+  delay(400);
+  display.writeCustom(A, t);
+  delay(100);
+  display.writeCustom(t, o);
+  delay(800);
 
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
-      Display.Update(initDisplay);
+      display.write(initDisplay);
       if (initDisplay >= 25) { digitalWrite(pinDSSS, HIGH); }
       if (initDisplay >= 40) { digitalWrite(pinOFDM, HIGH); }
       if (initDisplay >= 55) { digitalWrite(pinDATA, HIGH); }
@@ -95,7 +134,7 @@ void setup() {
   
   // Loop through numbers 0-99
   for (int initDisplay = 99 ; initDisplay >= scanChannel ; initDisplay--) {
-      Display.Update(initDisplay);
+      display.write(initDisplay);
       if (initDisplay <= 25) { digitalWrite(pinDSSS, LOW); }
       if (initDisplay <= 40) { digitalWrite(pinOFDM, LOW); }
       if (initDisplay <= 55) { digitalWrite(pinDATA, LOW); }
@@ -112,7 +151,7 @@ void setup() {
   }
 
   // Set display to current channel
-  Display.Update(scanChannel);
+  display.write(scanChannel);
 
   //Set station mode, callback, then cycle promiscuous mode
   wifi_set_opmode(STATION_MODE);
@@ -223,57 +262,57 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
     }
     
     if (ppkt->rx_ctrl.mcs != 0) {
-      blinkOn(1,frameType,ppkt->rx_ctrl.mcs,frameRSSI);
+      blinkOn(1,frameType,ppkt->rx_ctrl.mcs,frameRSSI,1);
     }
     else {
       switch (ppkt->rx_ctrl.rate) { // 0 is DSSS, 1 is OFDM
         case 0:
           frameRate = 1;
-          blinkOn(0,frameType,frameRate,frameRSSI);
+          blinkOn(0,frameType,frameRate,frameRSSI,0);
           break;
         case 1:
           frameRate = 2;
-          blinkOn(0,frameType,frameRate,frameRSSI);
+          blinkOn(0,frameType,frameRate,frameRSSI,0);
           break;
         case 2:
-          frameRate = 5.5;
-          blinkOn(0,frameType,frameRate,frameRSSI);
+          frameRate = 55;
+          blinkOn(0,frameType,frameRate,frameRSSI,0);
           break;
         case 3:
           frameRate = 11;
-          blinkOn(0,frameType,frameRate,frameRSSI);
+          blinkOn(0,frameType,frameRate,frameRSSI,0);
           break;
         case 11:
           frameRate = 6; 
-          blinkOn(1,frameType,frameRate,frameRSSI);
+          blinkOn(1,frameType,frameRate,frameRSSI,0);
           break;
         case 15:
           frameRate = 9;
-          blinkOn(1,frameType,frameRate,frameRSSI);
+          blinkOn(1,frameType,frameRate,frameRSSI,0);
           break;
         case 10:
           frameRate = 12;
-          blinkOn(1,frameType,frameRate,frameRSSI);
+          blinkOn(1,frameType,frameRate,frameRSSI,0);
           break;
         case 14:
           frameRate = 18;
-          blinkOn(1,frameType,frameRate,frameRSSI);
+          blinkOn(1,frameType,frameRate,frameRSSI,0);
           break;
         case 9:
           frameRate = 24;
-          blinkOn(1,frameType,frameRate,frameRSSI);
+          blinkOn(1,frameType,frameRate,frameRSSI,0);
           break;
         case 13:
           frameRate = 36;
-          blinkOn(1,frameType,frameRate,frameRSSI);
+          blinkOn(1,frameType,frameRate,frameRSSI,0);
           break;
         case 8:
           frameRate = 48;
-          blinkOn(1,frameType,frameRate,frameRSSI);
+          blinkOn(1,frameType,frameRate,frameRSSI,0);
           break;
         case 12:
           frameRate = 54;
-          blinkOn(1,frameType,frameRate,frameRSSI);
+          blinkOn(1,frameType,frameRate,frameRSSI,0);
           break;
       }
     }
@@ -321,7 +360,7 @@ void loop() {
       if (scanChannel == 14) {
         scanChannel = 1;
       }
-      Display.Update(scanChannel); // Write new channel to display 
+      display.write(scanChannel); // Write new channel to display 
       whenChannelDisplay = millis();
       resetScanning();            // Reset scanning so the new channel is used
       plusButtonEvent = false;
@@ -351,7 +390,7 @@ void loop() {
     if (scanChannel == 0) {    // Write new channel to display
       scanChannel = 13;
     }
-    Display.Update(scanChannel); // Write new channel to display
+    display.write(scanChannel); // Write new channel to display
     whenChannelDisplay = millis();
     resetScanning();            // Reset scanning so the new channel is used
     minusButtonEvent = false;
@@ -370,7 +409,7 @@ void resetScanning() {
   wifi_set_channel(scanChannel);
 }
 
-void blinkOn(boolean modulationType, byte frameType, float displayRate, int displayRSSI) {
+void blinkOn(boolean modulationType, byte frameType, float displayRate, int displayRSSI, boolean isMCS) {
   if (modulationType == 0) {
     digitalWrite(pinDSSS, HIGH);
   }
@@ -387,10 +426,13 @@ void blinkOn(boolean modulationType, byte frameType, float displayRate, int disp
     digitalWrite(pinDATA, HIGH);
   }
   if ((displayMode == 1) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
-    Display.Update(displayRSSI);
+    display.write(displayRSSI);
   }
-    if ((displayMode == 2) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
-    Display.Update(displayRate);
+  if ((displayMode == 2) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
+    display.write(displayRate);
+    if (isMCS) {
+      display.add(RIGHT_DISPLAY, DECIMAL);
+      }
   }
   whenBlinked = millis(); 
 }
@@ -411,6 +453,7 @@ void indicateDisplayMode() {
 
   if (displayMode == 0) {
     delay(100);
+    display.writeCustom(c,h);
     digitalWrite(pinDATA, HIGH);
     delay(100);
     digitalWrite(pinCTRL, HIGH);
@@ -429,11 +472,12 @@ void indicateDisplayMode() {
         digitalWrite(pinDATA, LOW);
         delay(100);
       }
-    Display.Update(scanChannel);
+    display.write(scanChannel);
     }
 
   if (displayMode == 1) {
     delay(100);
+    display.writeCustom(S,t);
     digitalWrite(pinDATA, HIGH);
     delay(100);
     digitalWrite(pinCTRL, HIGH);
@@ -445,7 +489,7 @@ void indicateDisplayMode() {
     digitalWrite(pinCTRL, LOW);
     delay(100);
     digitalWrite(pinMGMT, LOW);
-    delay(100);
+    delay(100);  
       for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
         digitalWrite(pinCTRL, HIGH);
         delay(100);
@@ -456,6 +500,7 @@ void indicateDisplayMode() {
 
   if (displayMode == 2) {
     delay(100);
+    display.writeCustom(d,r);
     digitalWrite(pinDATA, HIGH);
     delay(100);
     digitalWrite(pinCTRL, HIGH);
