@@ -112,15 +112,6 @@ void setup() {
 
   display.initialize();
 
-  /*
-  display.writeCustom(P, o);
-  delay(350);
-  display.writeCustom(t, A);
-  delay(350);
-  display.writeCustom(t, o);
-  delay(350);
-  */
-
   display.writeCustom(P, o);
   delay(400);
   display.writeCustom(o, t);
@@ -143,7 +134,7 @@ void setup() {
     Serial.print("Welcome to the Packet Potato. Serial output is enabled at 115200 baud.");
     Serial.print("\n");
   }
-/*
+
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
       display.write(initDisplay);
@@ -167,8 +158,6 @@ void setup() {
       if (initDisplay <= 85) { digitalWrite(pinMGMT, LOW); }
       delay(10);
   }
-
-  */
 
   // Set display to current channel
   display.write(scanChannel);
