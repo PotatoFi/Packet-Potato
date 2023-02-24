@@ -28,6 +28,7 @@ extern "C" {
 #define A             (B01110111)
 #define O             (B01111110)
 #define E             (B01001111)
+#define dash          (B00000001)
 //                      PABCDEFG
 sevenSegment display(14, 15, 13, 2);
 
@@ -73,15 +74,15 @@ const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is
 const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
 const int shortPressInterval = 250;
 const int longPressInterval = 750;
-const int minDisplayPersist = 2000; // more generic name needed, such as minDisplayPersist
-const int signalFlashDuration = 500;            // In signal threshold mode, how long to show signal on screen
-const int signalFlashInterval = 100;            // In signal threshold mode, how long to blank the screen
+const int minDisplayPersist = 2000;    // How long the current display should persist after some events
+const int signalFlashDuration = 500;   // In signal threshold mode, how long to show signal on screen
+const int signalFlashInterval = 100;   // In signal threshold mode, how long to blank the screen
 
 // Define timers
 unsigned long whenPlusPressed = 0;
 unsigned long whenMinusPressed = 0;
 unsigned long whenBlinked = 0;
-unsigned long whenChannelDisplay = 0;       // More generic name needed, such as whenDisplayPersist
+unsigned long whenDisplayPersist = 0;       // More generic name needed, such as whenDisplayPersist
 unsigned long whenSignalFlash = 0;
 
 // State variables
@@ -91,6 +92,7 @@ boolean plusButtonEvent = false;
 boolean minusButtonEvent = false;
 boolean blinkingState = false;
 boolean signalFlashState = false;
+boolean displayPersist = false;       // Track if the screen needs to persist or not
 
 boolean serialEnable = false;
 boolean signalMode = false;
@@ -400,7 +402,7 @@ void loop() {
     minusButtonEvent = false;
   }
 
-  if ((displayMode == SIGNAL) && (millis() - whenChannelDisplay <= minDisplayPersist)) {
+  if ((displayMode == SIGNAL) && (millis() - whenDisplayPersist <= minDisplayPersist)) {
     if ((signalFlashState == false) && (millis() - whenSignalFlash >= signalFlashDuration)) {
       display.writeCustom(BLANK, BLANK);
       whenSignalFlash = millis();
@@ -413,6 +415,11 @@ void loop() {
     }
     
   }
+
+  // See if the display needs to persist
+  /*if whenthescreenisreadytobecleared {
+      display.writeCustom(dash, dash);        // Set a flag saying the screen can be written on
+  }*/
 
 }
 
@@ -444,10 +451,10 @@ void blinkOn(boolean modulationType, byte frameType, float displayRate, int disp
   if (frameType == 2) {
     digitalWrite(pinDATA, HIGH);
   }
-  if ((displayMode == SIGNAL) && (millis() - whenChannelDisplay >= minDisplayPersist)) {
+  if ((displayMode == SIGNAL) && (millis() - whenDisplayPersist >= minDisplayPersist)) {
     display.write(displayRSSI);
   }
-  if ((displayMode == RATE) && (millis() - whenChannelDisplay >= minDisplayPersist)) {
+  if ((displayMode == RATE) && (millis() - whenDisplayPersist >= minDisplayPersist)) {
     display.write(displayRate);
     if (isMCS) {
       display.add(RIGHT_DISPLAY, DECIMAL);
@@ -481,7 +488,6 @@ void indicateDisplayMode(byte direction) {
         digitalWrite(pinDATA, LOW);
         delay(100);
       }
-    display.write(scanChannel);
     }
 
   if (displayMode == SIGNAL) {
@@ -511,7 +517,6 @@ void indicateDisplayMode(byte direction) {
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
   wifi_promiscuous_enable(1);
   wifi_set_channel(scanChannel);
-  whenChannelDisplay = 0;
 }
 
 void animateDisplayMode(byte direction) {
@@ -551,7 +556,7 @@ void inputChannelUp() {
     scanChannel = 1;
   }
   display.write(scanChannel);
-  whenChannelDisplay = millis();
+  whenDisplayPersist = millis();
   resetScanning();
 }
 
@@ -561,7 +566,7 @@ void inputChannelDown() {
     scanChannel = 13;
   }
   display.write(scanChannel);
-  whenChannelDisplay = millis();
+  whenDisplayPersist = millis();
   resetScanning();
 }
 
@@ -574,7 +579,7 @@ void inputSignalUp() {
     minRSSI = -95;
   }
   display.write(minRSSI * -1);
-  whenChannelDisplay = millis();
+  whenDisplayPersist = millis();
   signalFlashState = false;
 }
 
@@ -587,7 +592,7 @@ void inputSignalDown() {
     minRSSI = -99;
   }
   display.write(minRSSI * -1);
-  whenChannelDisplay = millis();
+  whenDisplayPersist = millis();
   signalFlashState = false;
 }
 
@@ -597,6 +602,7 @@ void inputModeUp() {
     displayMode = 1;
   }
   indicateDisplayMode(UP);
+  whenDisplayPersist = millis();
 }
 
 void inputModeDown() {
@@ -605,4 +611,5 @@ void inputModeDown() {
     displayMode = 4;
   }
   indicateDisplayMode(DOWN);
+  whenDisplayPersist = millis();
 }
