@@ -31,6 +31,16 @@ extern "C" {
 //                      PABCDEFG
 sevenSegment display(14, 15, 13, 2);
 
+// Display modes
+#define CHANNEL       (1)
+#define SIGNAL        (2)
+#define RATE          (3)
+#define UP            (1)
+#define DOWN          (0)
+
+#define MCSRATE       (1)
+#define NONMCSRATE    (0)
+
 // Define Arduino pins (board v1.02, v1.03, and v1.04)
 const int pinOFDM = 4;
 const int pinDSSS = 0;
@@ -53,7 +63,7 @@ sevensegment Display(14, 15, 13, 2);
 */
 
 byte scanChannel = 6;            // Current channel variable, and set it to start on channel 6
-signed minRSSI = -65;
+signed minRSSI = -95;
 byte frameModulation = 0;
 unsigned frameRSSI = 0;
 float frameRate = 0;
@@ -63,9 +73,9 @@ const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is
 const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
 const int shortPressInterval = 250;
 const int longPressInterval = 750;
-const int minChannelDisplayInterval = 2000; // more generic name needed, such as minDisplayPersist
-const int signalFlashDuration = 1000;            // In signal threshold mode, how long to show signal on screen
-const int signalFlashInterval = 1250;            // In signal threshold mode, how long to blank the screen
+const int minDisplayPersist = 2000; // more generic name needed, such as minDisplayPersist
+const int signalFlashDuration = 500;            // In signal threshold mode, how long to show signal on screen
+const int signalFlashInterval = 100;            // In signal threshold mode, how long to blank the screen
 
 // Define timers
 unsigned long whenPlusPressed = 0;
@@ -84,7 +94,7 @@ boolean signalFlashState = false;
 
 boolean serialEnable = false;
 boolean signalMode = false;
-byte displayMode = 0;                 // 0 is normal, 1 is RSSI, 2 is rate/MCS
+byte displayMode = CHANNEL;
 
 void setup() {
 
@@ -250,62 +260,62 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
     blinkingState = true;
 
     // Convert RSSI, if the display mode is enabled
-    if (displayMode == 1) {
+    if (displayMode == SIGNAL) {
       frameRSSI = ppkt->rx_ctrl.rssi * -1;       // Convert RSSI to a positive number
     }
     
     if (ppkt->rx_ctrl.mcs != 0) {
-      blinkOn(1,frameType,ppkt->rx_ctrl.mcs,frameRSSI,1);
+      blinkOn(1,frameType,ppkt->rx_ctrl.mcs,frameRSSI,MCSRATE);
     }
     else {
       switch (ppkt->rx_ctrl.rate) { // 0 is DSSS, 1 is OFDM
         case 0:
           frameRate = 1;
-          blinkOn(0,frameType,frameRate,frameRSSI,0);
+          blinkOn(0,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 1:
           frameRate = 2;
-          blinkOn(0,frameType,frameRate,frameRSSI,0);
+          blinkOn(0,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 2:
           frameRate = 55;
-          blinkOn(0,frameType,frameRate,frameRSSI,0);
+          blinkOn(0,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 3:
           frameRate = 11;
-          blinkOn(0,frameType,frameRate,frameRSSI,0);
+          blinkOn(0,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 11:
           frameRate = 6; 
-          blinkOn(1,frameType,frameRate,frameRSSI,0);
+          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 15:
           frameRate = 9;
-          blinkOn(1,frameType,frameRate,frameRSSI,0);
+          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 10:
           frameRate = 12;
-          blinkOn(1,frameType,frameRate,frameRSSI,0);
+          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 14:
           frameRate = 18;
-          blinkOn(1,frameType,frameRate,frameRSSI,0);
+          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 9:
           frameRate = 24;
-          blinkOn(1,frameType,frameRate,frameRSSI,0);
+          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 13:
           frameRate = 36;
-          blinkOn(1,frameType,frameRate,frameRSSI,0);
+          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 8:
           frameRate = 48;
-          blinkOn(1,frameType,frameRate,frameRSSI,0);
+          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
         case 12:
           frameRate = 54;
-          blinkOn(1,frameType,frameRate,frameRSSI,0);
+          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
           break;
       }
     }
@@ -358,7 +368,7 @@ void loop() {
 
   // Plus button short press
   if ((plusButtonState == LOW) && (plusButtonEvent == true) && (millis() - whenPlusPressed <= longPressInterval)) {
-    if (signalMode == true) { inputSignalUp(); }
+    if (displayMode == SIGNAL) { inputSignalUp(); }
     else {inputChannelUp(); }
     plusButtonEvent = false;
   }
@@ -366,8 +376,7 @@ void loop() {
 
   // Plus button long press
   if ((plusButtonState == HIGH) && (millis() - whenPlusPressed >= longPressInterval)) {
-    if (signalMode == true) {inputSignalAccept(); }
-    else {inputModeSwitch(); }
+    inputModeUp();
     plusButtonEvent = false;
   }
 
@@ -380,25 +389,24 @@ void loop() {
 
   // Minus button short press
   if ((minusButtonState == LOW) && (minusButtonEvent == true) && (millis() - whenMinusPressed <= longPressInterval)) {
-    if (signalMode == true) {inputSignalDown(); }
+    if (displayMode == SIGNAL) {inputSignalDown(); }
     else {inputChannelDown(); }   
     minusButtonEvent = false;
   }
 
   // Minus button long press
   if ((minusButtonState == HIGH) && (millis() - whenMinusPressed >= longPressInterval)) {
-    if (signalMode == true) {inputSignalAccept(); }
-    else {inputSignalSet(); }
+    inputModeDown();    
     minusButtonEvent = false;
   }
 
-  if (signalMode == true) {
-    if ((signalFlashState == false) && (millis() - whenSignalFlash >= 1000)) { // signalFlashInterval
+  if ((displayMode == SIGNAL) && (millis() - whenChannelDisplay <= minDisplayPersist)) {
+    if ((signalFlashState == false) && (millis() - whenSignalFlash >= signalFlashDuration)) {
       display.writeCustom(BLANK, BLANK);
       whenSignalFlash = millis();
       signalFlashState = true;
     }
-    if ((signalFlashState == true) && (millis() - whenSignalFlash >= 200)) { // signalFlashDuration
+    if ((signalFlashState == true) && (millis() - whenSignalFlash >= signalFlashInterval)) {
       display.write(minRSSI * -1);
       whenSignalFlash = millis();
       signalFlashState = false;  
@@ -436,10 +444,10 @@ void blinkOn(boolean modulationType, byte frameType, float displayRate, int disp
   if (frameType == 2) {
     digitalWrite(pinDATA, HIGH);
   }
-  if ((displayMode == 1) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
+  if ((displayMode == SIGNAL) && (millis() - whenChannelDisplay >= minDisplayPersist)) {
     display.write(displayRSSI);
   }
-  if ((displayMode == 2) && (millis() - whenChannelDisplay >= minChannelDisplayInterval)) {
+  if ((displayMode == RATE) && (millis() - whenChannelDisplay >= minDisplayPersist)) {
     display.write(displayRate);
     if (isMCS) {
       display.add(RIGHT_DISPLAY, DECIMAL);
@@ -456,27 +464,17 @@ void blinkOff() {
   digitalWrite(pinDATA, LOW);
 }
 
-void indicateDisplayMode() {
+void indicateDisplayMode(byte direction) {
+  
   wifi_set_opmode(STATION_MODE);
   wifi_promiscuous_enable(0);
   WiFi.disconnect();
   blinkOff();
 
-  if (displayMode == 0) {
+  if (displayMode == CHANNEL) {
     delay(100);
     display.writeCustom(c,h);
-    digitalWrite(pinDATA, HIGH);
-    delay(100);
-    digitalWrite(pinCTRL, HIGH);
-    delay(100);
-    digitalWrite(pinMGMT, HIGH);
-    delay(100);
-    digitalWrite(pinDATA, LOW);
-    delay(100);
-    digitalWrite(pinCTRL, LOW);
-    delay(100);
-    digitalWrite(pinMGMT, LOW);
-    delay(100);
+    animateDisplayMode(direction);
       for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
         digitalWrite(pinDATA, HIGH);
         delay(100);
@@ -486,21 +484,10 @@ void indicateDisplayMode() {
     display.write(scanChannel);
     }
 
-  if (displayMode == 1) {
+  if (displayMode == SIGNAL) {
     delay(100);
     display.writeCustom(S,t);
-    digitalWrite(pinDATA, HIGH);
-    delay(100);
-    digitalWrite(pinCTRL, HIGH);
-    delay(100);
-    digitalWrite(pinMGMT, HIGH);
-    delay(100);
-    digitalWrite(pinDATA, LOW);
-    delay(100);
-    digitalWrite(pinCTRL, LOW);
-    delay(100);
-    digitalWrite(pinMGMT, LOW);
-    delay(100);  
+    animateDisplayMode(direction);
       for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
         digitalWrite(pinCTRL, HIGH);
         delay(100);
@@ -509,21 +496,10 @@ void indicateDisplayMode() {
       }
   }
 
-  if (displayMode == 2) {
+  if (displayMode == RATE) {
     delay(100);
     display.writeCustom(d,r);
-    digitalWrite(pinDATA, HIGH);
-    delay(100);
-    digitalWrite(pinCTRL, HIGH);
-    delay(100);
-    digitalWrite(pinMGMT, HIGH);
-    delay(100);
-    digitalWrite(pinDATA, LOW);
-    delay(100);
-    digitalWrite(pinCTRL, LOW);
-    delay(100);
-    digitalWrite(pinMGMT, LOW);
-    delay(100);
+    animateDisplayMode(direction);
       for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
         digitalWrite(pinMGMT, HIGH);
         delay(100);
@@ -538,88 +514,95 @@ void indicateDisplayMode() {
   whenChannelDisplay = 0;
 }
 
+void animateDisplayMode(byte direction) {
+  if (direction == UP) {
+    digitalWrite(pinDATA, HIGH);
+    delay(100);
+    digitalWrite(pinCTRL, HIGH);
+    delay(100);
+    digitalWrite(pinMGMT, HIGH);
+    delay(100);
+    digitalWrite(pinDATA, LOW);
+    delay(100);
+    digitalWrite(pinCTRL, LOW);
+    delay(100);
+    digitalWrite(pinMGMT, LOW);
+    delay(100);
+  }
+  if (direction == DOWN) {
+    digitalWrite(pinMGMT, HIGH);
+    delay(100);
+    digitalWrite(pinCTRL, HIGH);
+    delay(100);
+    digitalWrite(pinDATA, HIGH);
+    delay(100);
+    digitalWrite(pinMGMT, LOW);
+    delay(100);
+    digitalWrite(pinCTRL, LOW);
+    delay(100);
+    digitalWrite(pinDATA, LOW);
+    delay(100);
+  }
+}
+
 void inputChannelUp() {
-      scanChannel++;                // Increase the channel by 1
-      if (scanChannel == 14) {
-        scanChannel = 1;
-      }
-      display.write(scanChannel);   // Write new channel to display 
-      whenChannelDisplay = millis();
-      resetScanning();              // Reset scanning so the new channel is used
+  scanChannel++;
+  if (scanChannel == 14) {
+    scanChannel = 1;
+  }
+  display.write(scanChannel);
+  whenChannelDisplay = millis();
+  resetScanning();
 }
 
 void inputChannelDown() {
-  scanChannel--;                    // Decrease the channel by 1
+  scanChannel--;
   if (scanChannel == 0) {
     scanChannel = 13;
   }
-  display.write(scanChannel);       // Write new channel to display
-  whenChannelDisplay = millis();
-  resetScanning();                  // Reset scanning so the new channel is used
-}
-
-void inputModeSwitch() {
-  displayMode++;
-  if (displayMode == 3) {
-    displayMode = 0;
-  }
-  indicateDisplayMode();
-}
-
-void inputSignalSet() {
-  display.writeCustom(S,E);
-  delay(100);
-  digitalWrite(pinDATA, HIGH);
-  delay(100);
-  digitalWrite(pinCTRL, HIGH);
-  delay(100);
-  digitalWrite(pinMGMT, HIGH);
-  delay(100);
-  digitalWrite(pinMGMT, LOW);
-  delay(100);
-  digitalWrite(pinCTRL, LOW);
-  delay(100);
-  digitalWrite(pinDATA, LOW);
-  delay(100);
-  signalMode = true;
-}
-
-void inputSignalAccept() {
-  display.write(minRSSI * -1);
-  digitalWrite(pinMGMT, HIGH);
-  delay(100);
-  digitalWrite(pinCTRL, HIGH);
-  delay(100);
-  digitalWrite(pinDATA, HIGH);
-  delay(100);
-  digitalWrite(pinMGMT, LOW);
-  delay(100);
-  digitalWrite(pinCTRL, LOW);
-  delay(100);
-  digitalWrite(pinDATA, LOW);
-  delay(100);
-  signalMode = false;
   display.write(scanChannel);
+  whenChannelDisplay = millis();
+  resetScanning();
 }
 
 void inputSignalUp() {
   minRSSI = minRSSI + 5;
-  if (minRSSI == -20) {
+  if (minRSSI >= -20) {     // Look back down to -99 dBm
+    minRSSI = -99;
+  }
+    if (minRSSI == -94) {   // If we land on -94, force to -95
     minRSSI = -95;
   }
   display.write(minRSSI * -1);
   whenChannelDisplay = millis();
-  whenSignalFlash = millis();
   signalFlashState = false;
 }
 
 void inputSignalDown() {
   minRSSI = minRSSI - 5;
-  if (minRSSI == -100) {
+  if (minRSSI < -100) {     // Loop back up to -25 dBm
     minRSSI = -25;
+  }
+  if (minRSSI == -100) {    // If we land on -100, force to -99
+    minRSSI = -99;
   }
   display.write(minRSSI * -1);
   whenChannelDisplay = millis();
-  whenSignalFlash = millis();
   signalFlashState = false;
+}
+
+void inputModeUp() {
+  displayMode++;
+  if (displayMode == 4) {
+    displayMode = 1;
+  }
+  indicateDisplayMode(UP);
+}
+
+void inputModeDown() {
+  displayMode--;
+  if (displayMode == 0) {
+    displayMode = 4;
+  }
+  indicateDisplayMode(DOWN);
 }
