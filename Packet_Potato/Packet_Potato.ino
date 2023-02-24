@@ -370,6 +370,7 @@ void loop() {
   if ((plusButtonState == HIGH) && (millis() - whenPlusPressed >= longPressInterval)) {
     inputModeUp();
     plusButtonEvent = false;
+    signalEditState = false;  // Cancel signal edit mode
   }
 
   // Start a timer for a minus button press
@@ -390,6 +391,7 @@ void loop() {
   if ((minusButtonState == HIGH) && (millis() - whenMinusPressed >= longPressInterval)) {
     inputModeDown();    
     minusButtonEvent = false;
+    signalEditState = false;  // Cancel signal edit mode
   }
 
   if (signalEditState == true) {
@@ -418,7 +420,6 @@ void loop() {
   }
 
 }
-
 
 // Reset scanning, used whenever we change channels with the buttons
 void resetScanning() {
