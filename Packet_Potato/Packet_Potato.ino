@@ -74,7 +74,7 @@ const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is
 const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
 const int shortPressInterval = 250;
 const int longPressInterval = 750;
-const int minDisplayPersist = 2000;    // How long the current display should persist after some events
+const int minDisplayPersist = 2400;    // How long the current display should persist after some events
 const int signalFlashDuration = 500;   // In signal threshold mode, how long to show signal on screen
 const int signalFlashInterval = 100;   // In signal threshold mode, how long to blank the screen
 
@@ -82,7 +82,7 @@ const int signalFlashInterval = 100;   // In signal threshold mode, how long to 
 unsigned long whenPlusPressed = 0;
 unsigned long whenMinusPressed = 0;
 unsigned long whenBlinked = 0;
-unsigned long whenDisplayPersist = 0;       // More generic name needed, such as whenDisplayPersist
+unsigned long whenDisplayPersist = 0;
 unsigned long whenSignalFlash = 0;
 
 // State variables
@@ -92,6 +92,7 @@ boolean plusButtonEvent = false;
 boolean minusButtonEvent = false;
 boolean blinkingState = false;
 boolean signalFlashState = false;
+boolean signalEditState = false;
 boolean displayPersist = false;       // Track if the screen needs to persist or not
 
 boolean serialEnable = false;
@@ -402,7 +403,7 @@ void loop() {
     minusButtonEvent = false;
   }
 
-  if ((displayMode == SIGNAL) && (millis() - whenDisplayPersist <= minDisplayPersist)) {
+  if (signalEditState == true) {
     if ((signalFlashState == false) && (millis() - whenSignalFlash >= signalFlashDuration)) {
       display.writeCustom(BLANK, BLANK);
       whenSignalFlash = millis();
@@ -413,13 +414,19 @@ void loop() {
       whenSignalFlash = millis();
       signalFlashState = false;  
     }
-    
   }
 
-  // See if the display needs to persist
-  /*if whenthescreenisreadytobecleared {
-      display.writeCustom(dash, dash);        // Set a flag saying the screen can be written on
-  }*/
+  // Release the display persistence flag when enough time has elapsed, reset chanel display and signal edit mode
+  if ((displayPersist == true) && (millis() - whenDisplayPersist >= minDisplayPersist)) {
+      displayPersist = false;               // All the display to be overwritten
+      display.writeCustom(dash, dash);
+      if (displayMode == CHANNEL) {
+        display.write(scanChannel);
+      }
+      if (displayMode == SIGNAL)  {
+        signalEditState = false;
+      }
+  }
 
 }
 
@@ -451,10 +458,10 @@ void blinkOn(boolean modulationType, byte frameType, float displayRate, int disp
   if (frameType == 2) {
     digitalWrite(pinDATA, HIGH);
   }
-  if ((displayMode == SIGNAL) && (millis() - whenDisplayPersist >= minDisplayPersist)) {
+  if ((displayMode == SIGNAL) && (displayPersist == false)) {
     display.write(displayRSSI);
   }
-  if ((displayMode == RATE) && (millis() - whenDisplayPersist >= minDisplayPersist)) {
+  if ((displayMode == RATE) && (displayPersist == false)) {
     display.write(displayRate);
     if (isMCS) {
       display.add(RIGHT_DISPLAY, DECIMAL);
@@ -488,7 +495,7 @@ void indicateDisplayMode(byte direction) {
         digitalWrite(pinDATA, LOW);
         delay(100);
       }
-    }
+  }
 
   if (displayMode == SIGNAL) {
     delay(100);
@@ -556,6 +563,7 @@ void inputChannelUp() {
     scanChannel = 1;
   }
   display.write(scanChannel);
+  displayPersist = true;
   whenDisplayPersist = millis();
   resetScanning();
 }
@@ -566,6 +574,7 @@ void inputChannelDown() {
     scanChannel = 13;
   }
   display.write(scanChannel);
+  displayPersist = true;
   whenDisplayPersist = millis();
   resetScanning();
 }
@@ -580,7 +589,8 @@ void inputSignalUp() {
   }
   display.write(minRSSI * -1);
   whenDisplayPersist = millis();
-  signalFlashState = false;
+  displayPersist = true;
+  signalEditState = true;
 }
 
 void inputSignalDown() {
@@ -593,7 +603,8 @@ void inputSignalDown() {
   }
   display.write(minRSSI * -1);
   whenDisplayPersist = millis();
-  signalFlashState = false;
+  displayPersist = true;
+  signalEditState = true;
 }
 
 void inputModeUp() {
@@ -601,8 +612,9 @@ void inputModeUp() {
   if (displayMode == 4) {
     displayMode = 1;
   }
-  indicateDisplayMode(UP);
   whenDisplayPersist = millis();
+  displayPersist = true;
+  indicateDisplayMode(UP);
 }
 
 void inputModeDown() {
@@ -610,6 +622,7 @@ void inputModeDown() {
   if (displayMode == 0) {
     displayMode = 4;
   }
-  indicateDisplayMode(DOWN);
   whenDisplayPersist = millis();
+  displayPersist = true;
+  indicateDisplayMode(DOWN);
 }
