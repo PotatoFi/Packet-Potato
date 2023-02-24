@@ -1,38 +1,83 @@
 # Packet-Potato
 
-The Packet Potato is a Wi-Fi packet analyzer! Or... is it a spectrum analyzer? Well, nobody really knows, but either way, it's the worst one of those two things, ever.
+The Packet Potato is a Wi-Fi packet analyzer! Or... is it a spectrum analyzer? The answer is unclear, but either way, it's the worst one of those two things, ever.
 
-The Packet Potato uses an ESP8266 that listens for 802.11 frames on a specific channel. The channel is configurable by pressing the `+` and `-` buttons, and displayed on the 14-segment display. As it receives a frame, it blinks the appropriate LED's to indicate some things about the 802.11 frame that it heard.
+The Packet Potato was originally created as a soldering project for a Deep Dive at the Wirless LAN Pros Conference. It is also intended to be a wearable electornic badge for WLPC, much like the digital badges that are common at infosec conferences.
 
-The Packet Potato has five sets of indicators:
-* DSSS - Blinks once whenever a data rate of 1, 2, 5.5, and 11 is heard
-* OFDM - Blinks once whenever a data rate of 6, 9, 12, 18, 24, 36, 48, 54, or any MCS date is heard
+## Modulation Indicators
+
+The Packet Potato uses an ESP8266 to capture 802.11 frames. When it hears a frame, it looks at the data rate, which tells it which type of modulation was used. On a real spectrum analyzer, DSSS (Direct Sequence Spread Spectrum) makes a curve shape, and OFDM (Orthoganol Frequency Division Multiplexing) makes a flat table-top shape.
+
+- 1, 2, 5.5, and 11 mbps are all 802.11b rates, and use DSSS, so the Packet Potato blinks the blue LEDs in a curve shape. 
+- 6, 9, 12, 18, 24, 36, 48, and 54 mbps are 802.11g rates, and used OFDM, so the Packet Potato blinks the green LEDs in a flat table-top shape.
+- 802.11n data rates also use OFDM, so they also blink the green LED's in a flat table-top shape.
+
+In this way, the Packet Potato emulates the look of a spectrum analyzer.
+
+## Frame Type Indicators
+
+In addition to the DSSS and OFDM signatures, the Packet Potato indicates the current received frame type with one of the three frame type LEDs:
+
 * DATA - Blinks once whenever a data frame is heard
 * MGMT - Blinks once whenever a management frame is heard
 * CTRL - Blinks once whenever a control frame is heard
 
-# Usage
+## Switching Channels
 
-Apply power, and after a short startup sequence, the Packet Potato will begin packet analysis! Or spectrum analysis. Which is it again?
+By default, the Packet Potato starts analyzing packets - er, sorry, **frames** on channel 6, with the current channel number being visible on the display. Press the `-` and `+` buttons on either side of the display to switch channels.
 
 ## Display Modes
 
-There are three display modes:
-- **Channel**: Displays the current channel on screen (default).
-- **Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
-- **Data Rate/MCS**: Displays the data rate or MCS of the last frame.
+Long-press the `-` and `+` buttons to switch display modes.
 
-To switch modes, long-press the `+` button. The DATA, CTRL, and DATA LEDs will blink to indicate which mode is selected. The screen will also show which mode is selected.
+1. **Channel**: Displays the current channel on screen (default).
+2. **Live Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
+3. **Live Data Rate/MCS**: Displays the data rate or MCS of the last frame.
 
-- **DATA** and `ch`: Channel
-- **CTRL** and `St`: Signal Strength
-- **MGMT** and `ra`: Rate/MCS
+When switching modes, the DATA, CTRL, and DATA LEDs will blink, and the screen will show characters to indicate which mode is selected:
+
+1. **DATA** and `ch`: Channel
+2. **CTRL** and `St`: Live Signal Strength
+3. **MGMT** and `ra`: Live Rate/MCS
+
+### Channel Mode
+
+Shows the current channel. Press the buttons to change it. Yawn.
+
+### Live Signal Strength
+
+Whoa, the display shows the signal strength in real-time! The screen will show the signal strength of the last frame blinked, in dBm. The negative is implied, of course, because you know... two characters. Is potato.
+
+By default, the Packet Potato blinks for any frame above `-99 dBm` (which should be everything it can hear). You can set a cutoff signal strength, causing the Packet Potato to ignore any frames that are quieter than the cutoff that you configure.
+
+Press `+` to increase the cutoff to higher signal strengths (remember that we are working in negatives, so it feels backward), and press `-` to decrease the cutoff to lower signal strengths. Each button press will change the threshold by `5 dB`. The changes will take effect in real-time, and persist when you switch to other modes. The configured number will blink 4 times, at which point the Packet Potato will return to showing you live signal strength.
+
+Things to try:
+
+- Try setting the Packet Potato to `-60 dBm`. It should only blink for APs and active clients in the same room.
+- Try `-40 dBm`, and wave it near an AP or active client. It should only blink when you're very close to the AP or active client.
+- If the Packet Potato doesn't blink, go back to Channel Mode and hop through the channels, one at a time. You should be able to figure out what channel your network is on in less than a minute!
+
+### Live Data Rate
+
+This is my favorite. In Live Data Rate mode, the Packet Potato shows the data rate or MCS ([Modulation Coding Scheme](https://mcsindex.com/)) of the last packet that it heard, in real-time. 802.11b and 802.11g data rates simply appear as a number, while 802.11n data rates appear as an MCS. To indicate that they are an MCS, the right decimal point also blinks, so you can tell if the frame was using an MCS or not.
+
+In Live Data Rate mode, the `-` and `+` buttons adjust the channel (just like in Channnel mode).
+
+Things to try:
+
+- Look at what data rates the MGMT (Management) frames are transmitted at. The lowest one you see is likely your Minimum Basic Rate, e.g. the slowest rate on your network. This is typically an old rate like 1 or 11 to ensure backwards compatibibility.
+- With a 2.4 GHz 802.11n device, get it to move some data (by changing a setting, starting a throughput test, or transmitting some data). You should see MCS rates. Single-stream clients in the 5 to 7 range are happy clients, and two-stream clients closer to 15 are examples of happy clients.
 
 ## Serial Output
 
-The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` at any time while "Potato" scrolls across the display, and until "Potato" disappears.
+The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` around the time that "Potato" disappears. You don't need to hold down the button for anything other than that, but it also won't hurt anything to hold the button down for a long time during the startup process.
 
 Note that the TX/RX pins on the WeMos D1 Mini are used to drive the CTRL and DATA LED's, so whenever serial is in use, those two LED's will illuminate. There weren't enough pins on the WeMos. Is potato.
+
+# Hardware
+
+The Packet Potato uses an ESP8266. More specifically, it uses a WeMos D1 Mini, which was chosen for ease of soldering, and so soldering class attendees could move the ESP8266 to a breadboard for other electronics projects.
 
 ## Power
 
@@ -40,7 +85,7 @@ You can power the Packet Potato with either a 3.7v lipo battery, or microUSB. Ju
 
 ## Display
 
-The display is controlled with a MAX7219: https://www.analog.com/media/en/technical-documentation/data-sheets/max7219-max7221.pdf
+The display is controlled with a MAX7219, which is [common and well-documented](https://www.analog.com/media/en/technical-documentation/data-sheets/max7219-max7221.pdf). It's the big integrated circuit on the front of the Packet Potato, above the 7-segment displays.
 
 # Flashing the WeMos D1 Mini
 
