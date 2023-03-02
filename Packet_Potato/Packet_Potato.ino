@@ -42,8 +42,8 @@ sevenSegment display(14, 15, 13, 2);
 #define UP            (1)
 #define DOWN          (0)
 
-#define MCSRATE       (1)
-#define NONMCSRATE    (0)
+#define IS_MCS        (1)
+#define NOT_MCS       (0)
 
 // Define Arduino pins (board v1.02, v1.03, and v1.04)
 const int pinOFDM = 4;
@@ -72,6 +72,10 @@ byte frameModulation = 0;
 unsigned frameRSSI = 0;
 float frameRate = 0;
 int retryRate = 0;
+bool isRetry = 0;
+byte retryBufferIndex;
+const int retryBufferSize = 200;
+bool retryBuffer[retryBufferSize] = {0};
 
 // Define intervals and durations
 const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is good
@@ -81,12 +85,7 @@ const int longPressInterval = 750;
 const int minDisplayPersist = 2400;    // How long the current display should persist after some events
 const int signalFlashDuration = 500;   // In signal threshold mode, how long to show signal on screen
 const int signalFlashInterval = 100;   // In signal threshold mode, how long to blank the screen
-const int retryUpdateInterval = 1000;
-const int retryBufferSize = 5000;    // Size of retry buffer, in milliseconds
 
-bool retryBuffer[retryBufferSize] = {0};
-unsigned long retryBufferStart = 0;   // I'm not convinced that I need this yet, but we'll see
-int displayRetryRate;
 
 // Define timers
 unsigned long whenPlusPressed = 0;
@@ -145,8 +144,6 @@ void setup() {
     Serial.print("Welcome to the Packet Potato. Serial output is enabled at 115200 baud.");
     Serial.print("\n");
   }
-
-  Serial.begin(115200);
 
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
@@ -240,11 +237,17 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
 
   // If it's a data frame, get the retry bit and update the buffer
   if (frameType == 2) {
-    updateRetryBuffer(frame_ctrl->retry);
+    updateRetryBuffer(frame_ctrl->retry);   // Uncomment this to factor in all frames, not just blinked frames
   }
 
   if ((millis() - whenBlinked >= minBlinkInterval) && (blinkingState == false) && (ppkt->rx_ctrl.rssi >= minRSSI)) {
     blinkingState = true;
+
+    // If it's a data frame, turn on the retry LED flag
+    if (frameType == 2) {
+      // updateRetryBuffer(frame_ctrl->retry); // Uncomment this to limit the retry rate to blinked frames      
+      isRetry = frame_ctrl->retry;
+    }
 
     // Convert RSSI, if the display mode is enabled
     if (displayMode == SIGNAL) {
@@ -252,57 +255,57 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
     }
     
     if (ppkt->rx_ctrl.mcs != 0) {
-      blinkOn(1,frameType,ppkt->rx_ctrl.mcs,frameRSSI,MCSRATE);
+      blinkOn(1,frameType,ppkt->rx_ctrl.mcs,frameRSSI,IS_MCS,isRetry);
     }
     else {
       switch (ppkt->rx_ctrl.rate) { // 0 is DSSS, 1 is OFDM
         case 0:
           frameRate = 1;
-          blinkOn(0,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(0,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 1:
           frameRate = 2;
-          blinkOn(0,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(0,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 2:
           frameRate = 55;
-          blinkOn(0,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(0,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 3:
           frameRate = 11;
-          blinkOn(0,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(0,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 11:
           frameRate = 6; 
-          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(1,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 15:
           frameRate = 9;
-          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(1,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 10:
           frameRate = 12;
-          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(1,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 14:
           frameRate = 18;
-          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(1,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 9:
           frameRate = 24;
-          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(1,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 13:
           frameRate = 36;
-          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(1,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 8:
           frameRate = 48;
-          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(1,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 12:
           frameRate = 54;
-          blinkOn(1,frameType,frameRate,frameRSSI,NONMCSRATE);
+          blinkOn(1,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
       }
     }
@@ -371,7 +374,6 @@ void loop() {
     plusButtonEvent = false;
   }
 
-
   // Plus button long press
   if ((plusButtonState == HIGH) && (millis() - whenPlusPressed >= longPressInterval)) {
     inputModeUp();
@@ -425,11 +427,6 @@ void loop() {
       }
   }
 
-  // Calculate a new retry rate
-  if ((displayMode == RETRY) && (millis() - whenRetryUpdated >= retryUpdateInterval)) {
-    int displayRetryRate = getRetry();
-  }
-
 }
 
 // Reset scanning, used whenever we change channels with the buttons
@@ -443,7 +440,7 @@ void resetScanning() {
   wifi_set_channel(scanChannel);
 }
 
-void blinkOn(boolean modulationType, byte frameType, float displayRate, int displayRSSI, boolean isMCS) {
+void blinkOn(boolean modulationType, byte frameType, float displayRate, int displayRSSI, bool isMCS, bool isRetry) {
   if (modulationType == 0) {
     digitalWrite(pinDSSS, HIGH);
   }
@@ -469,7 +466,10 @@ void blinkOn(boolean modulationType, byte frameType, float displayRate, int disp
       }
   }
   if ((displayMode == RETRY) && (displayPersist == false)) {
-    display.write(displayRetryRate);
+    display.write(getRetry());
+    if (isRetry) {
+      display.add(RIGHT_DISPLAY, DECIMAL);
+    }
   }
   whenBlinked = millis(); 
 }
@@ -581,6 +581,7 @@ void inputChannelUp() {
   if (scanChannel == 14) {
     scanChannel = 1;
   }
+  bool retryBuffer[retryBufferSize] = {0};  // Zero out the retry buffer
   display.write(scanChannel);
   displayPersist = true;
   whenDisplayPersist = millis();
@@ -592,6 +593,7 @@ void inputChannelDown() {
   if (scanChannel == 0) {
     scanChannel = 13;
   }
+  bool retryBuffer[retryBufferSize] = {0};  // Zero out the retry buffer
   display.write(scanChannel);
   displayPersist = true;
   whenDisplayPersist = millis();
@@ -600,7 +602,7 @@ void inputChannelDown() {
 
 void inputSignalUp() {
   minRSSI = minRSSI + 5;
-  if (minRSSI >= -20) {     // Look back down to -99 dBm
+  if (minRSSI >= -20) {     // Loop back down to -99 dBm
     minRSSI = -99;
   }
     if (minRSSI == -94) {   // If we land on -94, force to -95
@@ -647,30 +649,31 @@ void inputModeDown() {
 }
 
 void updateRetryBuffer(bool retryDataPoint) {
-  unsigned long currentTime = millis();
-  if (retryBufferStart = 0) {
-    retryBufferStart = currentTime;
+  if (retryBufferIndex == (retryBufferSize)) {
+    retryBufferIndex = 0;
   }
-  int retryBufferIndex = (currentTime - retryBufferStart) % retryBufferSize; // See where we are in the circular buffer
-  retryBuffer[retryBufferIndex] = retryDataPoint;                         // Put the new data point in the buffer
+  retryBuffer[retryBufferIndex] = retryDataPoint;     // Put the new data point in the buffer
+  retryBufferIndex++;                                 // Go to the next position in the buffer
 }
 
 int getRetry() {
-
-  float countRetry = 0; 
+  float retryBufferCount = 0; 
   float retryRateFloat = 0;
   int retryRateRounded = 0;
 
-  unsigned long currentTime = millis();
-
-  for (int i = 0 ; i < retryBufferSize ; i++) {         // Check the contents of the buffer
-    int retryBufferIndex = (currentTime - retryBufferStart - i ) % retryBufferSize;
-    if (retryBuffer[retryBufferIndex]) {                // Whenever a retry is found...
-      countRetry++;                                     // Add 
+  // Check the contents of the buffer
+  for (int retryBufferIndex = 0 ; retryBufferIndex < (retryBufferSize - 1) ; retryBufferIndex++) {
+    if (retryBuffer[retryBufferIndex] == 1) { // Whenever a retry is found...
+      retryBufferCount++;                     // Add to the number of retries
     }
   }
 
-  retryRateFloat = (float)countRetry / retryBufferSize; // Calculate the average
-  retryRateRounded = round(retryRateFloat);               // Convert to an integer
+  // Simple way, which requires a buffer size of 100 to work
+  // retryRateRounded = retryBufferCount / retryBufferSize * 100;        // Calculate the percentage of retries
+  // return retryRateRounded;
+
+  // Advanced way, which uses a floating point number
+  retryRateFloat = (float)retryBufferCount / retryBufferSize * 100; // Calculate the average
+  retryRateRounded = round(retryRateFloat);                         // Convert to an integer
   return retryRateRounded;
 }
