@@ -236,8 +236,8 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
   byte frameType = getFrameType((wifi_promiscuous_pkt_type_t)frame_ctrl->type);
 
   // If it's a data frame, get the retry bit and update the buffer
-  if (frameType == 2) {
-    updateRetryBuffer(frame_ctrl->retry);   // Uncomment this to factor in all frames, not just blinked frames
+  if ((frameType == 2) && (ppkt->rx_ctrl.rssi >= minRSSI)) {
+    updateRetryBuffer(frame_ctrl->retry) ;
   }
 
   if ((millis() - whenBlinked >= minBlinkInterval) && (blinkingState == false) && (ppkt->rx_ctrl.rssi >= minRSSI)) {
@@ -245,7 +245,6 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
 
     // If it's a data frame, turn on the retry LED flag
     if (frameType == 2) {
-      // updateRetryBuffer(frame_ctrl->retry); // Uncomment this to limit the retry rate to blinked frames      
       isRetry = frame_ctrl->retry;
     }
 
