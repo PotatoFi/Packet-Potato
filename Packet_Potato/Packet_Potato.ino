@@ -337,9 +337,14 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
         Serial.print(frame_ctrl->retry);
         Serial.print("\n");
       }
+      else {
+        Serial.print("Retry: N/A");
+        Serial.print("\n");
+      }
 
-      Serial.print("Retry Rate: %");
+      Serial.print("Retry Rate: ");
       Serial.print(getRetry());
+      Serial.print("%");
       Serial.print("\n");
     
       Serial.print("\n");       // End of line
