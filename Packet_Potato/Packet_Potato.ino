@@ -1,10 +1,11 @@
 
 #include <ESP8266WiFi.h>
 #include <string>
-#include "sevensegment.h"
 #include "sdk_structs.h"
 #include "ieee80211_structs.h"
 #include "string_utils.h"
+#include "math.h"
+#include "sevensegment.h"
 
 extern "C" {
 #include "user_interface.h"
@@ -36,6 +37,8 @@ sevenSegment display(14, 15, 13, 2);
 #define CHANNEL       (1)
 #define SIGNAL        (2)
 #define RATE          (3)
+#define RETRY         (4)
+
 #define UP            (1)
 #define DOWN          (0)
 
@@ -68,6 +71,7 @@ signed minRSSI = -95;
 byte frameModulation = 0;
 unsigned frameRSSI = 0;
 float frameRate = 0;
+int retryRate = 0;
 
 // Define intervals and durations
 const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is good
@@ -77,6 +81,12 @@ const int longPressInterval = 750;
 const int minDisplayPersist = 2400;    // How long the current display should persist after some events
 const int signalFlashDuration = 500;   // In signal threshold mode, how long to show signal on screen
 const int signalFlashInterval = 100;   // In signal threshold mode, how long to blank the screen
+const int retryUpdateInterval = 1000;
+const int retryBufferSize = 5000;    // Size of retry buffer, in milliseconds
+
+bool retryBuffer[retryBufferSize] = {0};
+unsigned long retryBufferStart = 0;   // I'm not convinced that I need this yet, but we'll see
+int displayRetryRate;
 
 // Define timers
 unsigned long whenPlusPressed = 0;
@@ -84,6 +94,7 @@ unsigned long whenMinusPressed = 0;
 unsigned long whenBlinked = 0;
 unsigned long whenDisplayPersist = 0;
 unsigned long whenSignalFlash = 0;
+unsigned long whenRetryUpdated = 0;
 
 // State variables
 boolean plusButtonState = false;
@@ -135,6 +146,8 @@ void setup() {
     Serial.print("\n");
   }
 
+  Serial.begin(115200);
+
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
       display.write(initDisplay);
@@ -178,75 +191,57 @@ struct RxControl {
   unsigned rate: 4;
   unsigned is_group: 1;
   unsigned: 1;
-  unsigned sig_mode: 2;         // 0:is 11n packet; 1:is not 11n packet;
-  unsigned legacy_length: 12;   // If not 11n packet, shows length of packet.
+  unsigned sig_mode: 2;         // 0:is 11n frame, 1:is not 11n frame
+  unsigned legacy_length: 12;   // If not 11n frame, shows length of the frame
   unsigned damatch0: 1;
   unsigned damatch1: 1;
   unsigned bssidmatch0: 1;
   unsigned bssidmatch1: 1;
-  unsigned MCS: 7;              // If is 11n packet, shows the modulation and code used (range from 0 to 76)
-  unsigned CWB: 1;              // If is 11n packet, shows if is HT40 packet or not
-  unsigned HT_length: 16;       // If is 11n packet, shows length of packet.
+  unsigned MCS: 7;              // If is 11n frame, shows the modulation and code used (range from 0 to 76)
+  unsigned CWB: 1;              // If is 11n frame, shows if is HT40 frame or not
+  unsigned HT_length: 16;       // If is 11n frame, shows length of frame
   unsigned Smoothing: 1;
   unsigned Not_Sounding: 1;
   unsigned: 1;
   unsigned Aggregation: 1;
   unsigned STBC: 2;
-  unsigned FEC_CODING: 1;      // If is 11n packet, shows if is LDPC packet or not.
+  unsigned FEC_CODING: 1;      // If is 11n frame, shows if is LDPC frame or not
   unsigned SGI: 1;
   unsigned rxend_state: 8;
   unsigned ampdu_cnt: 8;
-  unsigned channel: 4;        // Which channel this packet in.
+  unsigned channel: 4;         // Which channel this frame in
   unsigned: 12;
 };
 
-struct sniffer_buf2 {         // I have absolutely no idea what is going on here, is it creating a struct?
-  struct RxControl rx_ctrl;   // This is creating a structure or something...?
-  u8 buf[112];                // Only mention of "buf" I can find. 112 refers to the length of the frame?
+struct sniffer_buf2 {
+  struct RxControl rx_ctrl;
+  u8 buf[112];
   u16 cnt;
-  u16 len;                    // Length of packet
+  u16 len;                    // Length of frame
 };
 
-// This is commented out because it's not used at the moment. Might be more useful than the string operations
-// later so I haven't deleted it yet.
-/*
-  wifi_promiscuous_pkt_type_t packet_type_parser(uint16_t len)
-  {
-  switch (len)
-  {
-    // If only rx_ctrl is returned, this is an unsupported packet
-    case sizeof(wifi_pkt_rx_ctrl_t):
-      return WIFI_PKT_MISC;
-
-    // Management packet
-    case sizeof(wifi_pkt_mgmt_t):
-      return WIFI_PKT_MGMT;
-
-    // Data packet
-    default:
-      return WIFI_PKT_DATA;
-  }
-  }
-*/
-
-// This is the new handler, stolen mostly from https://github.com/n0w/esp8266-simple-sniffer/blob/master/src/main.cpp
 void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
     
   // First layer: type cast the received buffer into the generic SDK structure
   const wifi_promiscuous_pkt_t *ppkt = (wifi_promiscuous_pkt_t *)buff;
 
-  // Second layer: define pointer to where the actual 802.11 packet is within the structure
+  // Second layer: define pointer to where the actual 802.11 frame is within the structure
   const wifi_ieee80211_packet_t *ipkt = (wifi_ieee80211_packet_t *)ppkt->payload;
 
-  // Third layer: define pointers to the 802.11 packet header and payload
+  // Third layer: define pointers to the 802.11 frame header and payload
   const wifi_ieee80211_mac_hdr_t *hdr = &ipkt->hdr;
   const uint8_t *data = ipkt->payload;
 
-  // Pointer to the frame control section within the packet header
+  // Pointer to the frame control section within the frame header
   const wifi_header_frame_control_t *frame_ctrl = (wifi_header_frame_control_t *)&hdr->frame_ctrl;
 
   // Get the frame type
   byte frameType = getFrameType((wifi_promiscuous_pkt_type_t)frame_ctrl->type);
+
+  // If it's a data frame, get the retry bit and update the buffer
+  if (frameType == 2) {
+    updateRetryBuffer(frame_ctrl->retry);
+  }
 
   if ((millis() - whenBlinked >= minBlinkInterval) && (blinkingState == false) && (ppkt->rx_ctrl.rssi >= minRSSI)) {
     blinkingState = true;
@@ -334,14 +329,25 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
       Serial.print("RSSI: ");
       Serial.print(ppkt->rx_ctrl.rssi);
       Serial.print("\n");
+
+      if (frameType == 2) {
+        Serial.print("Retry: ");
+        Serial.print(frame_ctrl->retry);
+        Serial.print("\n");
+      }
+
+      Serial.print("Retry Rate: %");
+      Serial.print(getRetry());
       Serial.print("\n");
+    
+      Serial.print("\n");       // End of line
     }
-     
   }
 }
 
-void capture(uint8_t *buff, uint16_t len) {      // This seems to callback whenever a packet is heard?
-  sniffer_buf2 *data = (sniffer_buf2 *)buff;     // No idea what this does (but *data is a pointer, right?)
+void capture(uint8_t *buff, uint16_t len) 
+{
+  sniffer_buf2 *data = (sniffer_buf2 *)buff;
 }
 
 void loop() {
@@ -419,6 +425,11 @@ void loop() {
       }
   }
 
+  // Calculate a new retry rate
+  if ((displayMode == RETRY) && (millis() - whenRetryUpdated >= retryUpdateInterval)) {
+    int displayRetryRate = getRetry();
+  }
+
 }
 
 // Reset scanning, used whenever we change channels with the buttons
@@ -457,6 +468,9 @@ void blinkOn(boolean modulationType, byte frameType, float displayRate, int disp
       display.add(RIGHT_DISPLAY, DECIMAL);
       }
   }
+  if ((displayMode == RETRY) && (displayPersist == false)) {
+    display.write(displayRetryRate);
+  }
   whenBlinked = millis(); 
 }
 
@@ -480,8 +494,10 @@ void indicateDisplayMode(byte direction) {
     display.writeCustom(c,h);
     animateDisplayMode(direction);
       for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
+        digitalWrite(pinMGMT, HIGH);
         digitalWrite(pinDATA, HIGH);
         delay(100);
+        digitalWrite(pinMGMT, LOW);
         digitalWrite(pinDATA, LOW);
         delay(100);
       }
@@ -492,9 +508,9 @@ void indicateDisplayMode(byte direction) {
     display.writeCustom(S,t);
     animateDisplayMode(direction);
       for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
-        digitalWrite(pinCTRL, HIGH);
+        digitalWrite(pinDATA, HIGH);
         delay(100);
-        digitalWrite(pinCTRL, LOW);
+        digitalWrite(pinDATA, LOW);
         delay(100);
       }
   }
@@ -504,11 +520,24 @@ void indicateDisplayMode(byte direction) {
     display.writeCustom(d,r);
     animateDisplayMode(direction);
       for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
-        digitalWrite(pinMGMT, HIGH);
+        digitalWrite(pinCTRL, HIGH);
         delay(100);
-        digitalWrite(pinMGMT, LOW);
+        digitalWrite(pinCTRL, LOW);
         delay(100);
       }
+  }
+
+  if (displayMode == RETRY) {
+    delay(100);
+    display.writeCustom(r,r);
+    animateDisplayMode(direction);
+    for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
+      digitalWrite(pinMGMT, HIGH);
+      delay(100);
+      digitalWrite(pinMGMT, LOW);
+      delay(100);
+    }
+
   }
   
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
@@ -599,7 +628,7 @@ void inputSignalDown() {
 
 void inputModeUp() {
   displayMode++;
-  if (displayMode == 4) {
+  if (displayMode == 5) {
     displayMode = 1;
   }
   whenDisplayPersist = millis();
@@ -615,4 +644,33 @@ void inputModeDown() {
   whenDisplayPersist = millis();
   displayPersist = true;
   indicateDisplayMode(DOWN);
+}
+
+void updateRetryBuffer(bool retryDataPoint) {
+  unsigned long currentTime = millis();
+  if (retryBufferStart = 0) {
+    retryBufferStart = currentTime;
+  }
+  int retryBufferIndex = (currentTime - retryBufferStart) % retryBufferSize; // See where we are in the circular buffer
+  retryBuffer[retryBufferIndex] = retryDataPoint;                         // Put the new data point in the buffer
+}
+
+int getRetry() {
+
+  float countRetry = 0; 
+  float retryRateFloat = 0;
+  int retryRateRounded = 0;
+
+  unsigned long currentTime = millis();
+
+  for (int i = 0 ; i < retryBufferSize ; i++) {         // Check the contents of the buffer
+    int retryBufferIndex = (currentTime - retryBufferStart - i ) % retryBufferSize;
+    if (retryBuffer[retryBufferIndex]) {                // Whenever a retry is found...
+      countRetry++;                                     // Add 
+    }
+  }
+
+  retryRateFloat = (float)countRetry / retryBufferSize; // Calculate the average
+  retryRateRounded = round(retryRateFloat);               // Convert to an integer
+  return retryRateRounded;
 }
