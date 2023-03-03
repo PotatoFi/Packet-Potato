@@ -98,6 +98,7 @@ unsigned long whenSignalFlash = 0;
 unsigned long whenRetryUpdated = 0;
 unsigned long eyeBlinked = 0;
 unsigned long eyeOpened = 0;
+unsigned long eyeClosed = 0;
 unsigned long eyeNextBlink = 0;
 
 // State variables
@@ -441,31 +442,19 @@ void loop() {
 
   // When the screen hasn't been updated in awhile, show the potato eyes and enable eye blink mode
   if ((eyeMode == false) && (millis() - whenBlinked >= 5000)) {
-    display.writeCustom(dash, dash);
-    delay(250);
-    display.writeCustom(O,O);
-    delay(100);
-    display.writeCustom(dash, dash);
-    delay(100);
-    display.writeCustom(O,O);   
+    display.writeCustom(dash,dash);  
     eyeMode = true;
-    eyeOpened = millis();
-    eyeNextBlink = 500;
+    eyeClosed = millis();
+
   }
 
-  if (eyeMode == true) {
+  if (millis() - eyeClosed >= random(300,600)) {
+    display.writeCustom(O,O);
 
-    if (millis() - eyeOpened >= eyeNextBlink) {
-      display.writeCustom(dash,dash);
-      eyeBlinked = millis();
-    }
-
-    if (millis() - eyeBlinked >= eyeBlinkDuration) {
-      display.writeCustom(O,O);
-      eyeBlinked = 0;
-    }
-    eyeNextBlink = random(eyeBlinkMinInterval,eyeBlinkMaxInterval); // generate a random amount of time for the next blink
+    eyeClosed = 0;    
   }
+
+  //eyeNextBlink = random(eyeBlinkMinInterval,eyeBlinkMaxInterval); // generate a random amount of time for the next blink
 
 
 }
