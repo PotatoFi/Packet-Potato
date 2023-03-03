@@ -85,9 +85,8 @@ const int longPressInterval = 750;
 const int minDisplayPersist = 2400;    // How long the current display should persist after some events
 const int signalFlashDuration = 500;   // In signal threshold mode, how long to show signal on screen
 const int signalFlashInterval = 100;   // In signal threshold mode, how long to blank the screen
-const int eyeBlinkMinInterval = 250;
-const int eyeBlinkMaxInterval = 3000;
-const int eyeBlinkDuration = 125;
+int eyeOpenInterval = 0;
+int eyeClosedDuration = 0;
 
 // Define timers
 unsigned long whenPlusPressed = 0;
@@ -99,7 +98,7 @@ unsigned long whenRetryUpdated = 0;
 unsigned long eyeBlinked = 0;
 unsigned long eyeOpened = 0;
 unsigned long eyeClosed = 0;
-unsigned long eyeNextBlink = 0;
+unsigned long whenEye = 0;
 
 // State variables
 bool plusButtonState = false;
@@ -111,6 +110,7 @@ bool signalFlashState = false;
 bool signalEditState = false;
 bool displayPersist = false;       // Track if the screen needs to persist or not
 bool eyeMode = false;
+bool eyeOpenState = false;
 
 bool serialEnable = false;
 bool signalMode = false;
@@ -246,7 +246,7 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
 
   // If it's a data frame, get the retry bit and update the buffer
   if ((frameType == 2) && (ppkt->rx_ctrl.rssi >= minRSSI)) {
-    updateRetryBuffer(frame_ctrl->retry) ;
+    updateRetryBuffer(frame_ctrl->retry);
   }
 
   if ((millis() - whenBlinked >= minBlinkInterval) && (blinkingState == false) && (ppkt->rx_ctrl.rssi >= minRSSI)) {
@@ -444,19 +444,37 @@ void loop() {
   if ((eyeMode == false) && (millis() - whenBlinked >= 5000)) {
     display.writeCustom(dash,dash);  
     eyeMode = true;
-    eyeClosed = millis();
-
+    eyeOpenState = false;
+    whenEye = millis();
+    eyeClosedDuration = random(250,500);
   }
 
-  if (millis() - eyeClosed >= random(300,600)) {
-    display.writeCustom(O,O);
+  if (eyeMode == true) {
 
-    eyeClosed = 0;    
+    if ((eyeOpenState == false) && (millis() - whenEye >= eyeClosedDuration)) {
+      display.writeCustom(O, O);        // Open eyes
+      whenEye = millis();
+      eyeOpenInterval = random(250,5000);
+      eyeOpenState = true;
+    }
+
+    if (eyeOpenState == true) {
+
+      if ((millis() - whenEye >= eyeOpenInterval - 500)) {
+        display.writeCustom(dash, dash);  // Close eyes
+        whenEye = millis();
+        eyeClosedDuration = random(80,300);
+        eyeOpenState = false;  
+      }
+
+      if ((millis() - whenEye >= eyeOpenInterval)) {
+        display.writeCustom(O, dash);  // Wink
+        whenEye = millis();
+        eyeClosedDuration = random(280,320);
+        eyeOpenState = false;
+      }
+    }
   }
-
-  //eyeNextBlink = random(eyeBlinkMinInterval,eyeBlinkMaxInterval); // generate a random amount of time for the next blink
-
-
 }
 
 // Reset scanning, used whenever we change channels with the buttons
@@ -707,4 +725,8 @@ int getRetry() {
   retryRateFloat = (float)retryBufferCount / retryBufferSize * 100; // Calculate the average
   retryRateRounded = round(retryRateFloat);                         // Convert to an integer
   return retryRateRounded;
+}
+
+void resetEyes(){
+  eyeMode = false;
 }
