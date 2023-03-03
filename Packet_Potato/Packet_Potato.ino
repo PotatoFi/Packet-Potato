@@ -85,7 +85,9 @@ const int longPressInterval = 750;
 const int minDisplayPersist = 2400;    // How long the current display should persist after some events
 const int signalFlashDuration = 500;   // In signal threshold mode, how long to show signal on screen
 const int signalFlashInterval = 100;   // In signal threshold mode, how long to blank the screen
-
+const int eyeBlinkMinInterval = 250;
+const int eyeBlinkMaxInterval = 3000;
+const int eyeBlinkDuration = 125;
 
 // Define timers
 unsigned long whenPlusPressed = 0;
@@ -94,19 +96,23 @@ unsigned long whenBlinked = 0;
 unsigned long whenDisplayPersist = 0;
 unsigned long whenSignalFlash = 0;
 unsigned long whenRetryUpdated = 0;
+unsigned long eyeBlinked = 0;
+unsigned long eyeOpened = 0;
+unsigned long eyeNextBlink = 0;
 
 // State variables
-boolean plusButtonState = false;
-boolean minusButtonState = false;
-boolean plusButtonEvent = false;
-boolean minusButtonEvent = false;
-boolean blinkingState = false;
-boolean signalFlashState = false;
-boolean signalEditState = false;
-boolean displayPersist = false;       // Track if the screen needs to persist or not
+bool plusButtonState = false;
+bool minusButtonState = false;
+bool plusButtonEvent = false;
+bool minusButtonEvent = false;
+bool blinkingState = false;
+bool signalFlashState = false;
+bool signalEditState = false;
+bool displayPersist = false;       // Track if the screen needs to persist or not
+bool eyeMode = false;
 
-boolean serialEnable = false;
-boolean signalMode = false;
+bool serialEnable = false;
+bool signalMode = false;
 byte displayMode = CHANNEL;
 
 void setup() {
@@ -145,6 +151,7 @@ void setup() {
     Serial.print("\n");
   }
 
+  /*
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
       display.write(initDisplay);
@@ -168,6 +175,7 @@ void setup() {
       if (initDisplay <= 85) { digitalWrite(pinMGMT, LOW); }
       delay(10);
   }
+  */
 
   // Set display to current channel
   display.write(scanChannel);
@@ -421,8 +429,8 @@ void loop() {
 
   // Release the display persistence flag when enough time has elapsed, reset chanel display and signal edit mode
   if ((displayPersist == true) && (millis() - whenDisplayPersist >= minDisplayPersist)) {
-      displayPersist = false;               // All the display to be overwritten
-      display.writeCustom(dash, dash);
+      displayPersist = false;               // Allow the display to be overwritten
+      //display.writeCustom(dash, dash);
       if (displayMode == CHANNEL) {
         display.write(scanChannel);
       }
@@ -430,6 +438,35 @@ void loop() {
         signalEditState = false;
       }
   }
+
+  // When the screen hasn't been updated in awhile, show the potato eyes and enable eye blink mode
+  if ((eyeMode == false) && (millis() - whenBlinked >= 5000)) {
+    display.writeCustom(dash, dash);
+    delay(250);
+    display.writeCustom(O,O);
+    delay(100);
+    display.writeCustom(dash, dash);
+    delay(100);
+    display.writeCustom(O,O);   
+    eyeMode = true;
+    eyeOpened = millis();
+    eyeNextBlink = 500;
+  }
+
+  if (eyeMode == true) {
+
+    if (millis() - eyeOpened >= eyeNextBlink) {
+      display.writeCustom(dash,dash);
+      eyeBlinked = millis();
+    }
+
+    if (millis() - eyeBlinked >= eyeBlinkDuration) {
+      display.writeCustom(O,O);
+      eyeBlinked = 0;
+    }
+    eyeNextBlink = random(eyeBlinkMinInterval,eyeBlinkMaxInterval); // generate a random amount of time for the next blink
+  }
+
 
 }
 
@@ -475,7 +512,8 @@ void blinkOn(boolean modulationType, byte frameType, float displayRate, int disp
       display.add(RIGHT_DISPLAY, DECIMAL);
     }
   }
-  whenBlinked = millis(); 
+  whenBlinked = millis();
+  eyeMode = false;
 }
 
 void blinkOff() {
