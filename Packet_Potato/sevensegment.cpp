@@ -50,7 +50,7 @@ void sevenSegment::write(unsigned int number)
   byte byteData;
 
   //Turn off display
-  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_OFF);
+  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_OFF);  
 
   for (int i = 0; i < _numDigits; i++)  // Loop through all digits on the display
     {
@@ -67,17 +67,25 @@ void sevenSegment::write(unsigned int number)
           }
       */
 
-      // Set Register for this digit
-      setRegister(MAX7219_DIGIT_REG(i), byteData);
+      // Set Register for digit       
+
       if (i == 0) {
+        setRegister(MAX7219_DIGIT_REG(0), byteData);
         oldScreen = byteData;
       }
 
-      // If the leading number is 0, clear it
-      if (i == 1 && byteData == B01111110) {
-        setRegister(MAX7219_DIGIT_REG(1), BLANK);
+      if (i == 1) {
+        // If the leading number is 0, clear it
+        if (i == 1 && byteData == B01111110) {
+          setRegister(MAX7219_DIGIT_REG(1), BLANK);
+        }
+        else {
+          setRegister(MAX7219_DIGIT_REG(1), byteData);
+        }   
       }
+
     }
+    
   // Turn display back on
   setRegister(MAX7219_SHUTDOWN_REG, MAX7219_ON);
 }
