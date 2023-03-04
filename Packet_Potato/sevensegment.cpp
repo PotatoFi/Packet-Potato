@@ -50,9 +50,9 @@ void sevenSegment::write(unsigned int number)
   byte byteData;
 
   //Turn off display
-  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_OFF);
+  setRegister(MAX7219_SHUTDOWN_REG, MAX7219_OFF);  
 
-  for (int i = 0; i < _numDigits; i++)
+  for (int i = 0; i < _numDigits; i++)  // Loop through all digits on the display
     {
       digitValue = number % DIGIT_BASE;
       number /= DIGIT_BASE;
@@ -67,17 +67,25 @@ void sevenSegment::write(unsigned int number)
           }
       */
 
-      // Set Register for this digit
-      setRegister(MAX7219_DIGIT_REG(i), byteData);
+      // Set Register for digit       
+
       if (i == 0) {
+        setRegister(MAX7219_DIGIT_REG(0), byteData);
         oldScreen = byteData;
       }
 
-      // If the leading number is 0, clear it
-      if (i == 1 && byteData == B01111110) {
-        setRegister(MAX7219_DIGIT_REG(1), BLANK);
+      if (i == 1) {
+        // If the leading number is 0, clear it
+        if (i == 1 && byteData == B01111110) {
+          setRegister(MAX7219_DIGIT_REG(1), BLANK);
+        }
+        else {
+          setRegister(MAX7219_DIGIT_REG(1), byteData);
+        }   
       }
+
     }
+    
   // Turn display back on
   setRegister(MAX7219_SHUTDOWN_REG, MAX7219_ON);
 }
@@ -95,7 +103,7 @@ void sevenSegment::writeCustom(byte leftNewScreen, byte rightNewScreen) {
 
 // Add segments without clearing the display
 void sevenSegment::add(byte side, byte newScreen) {
-  //byte nowScreen;                                   // Create the nowScreen variable
+  //byte nowScreen;                                 // Create the nowScreen variable
   nowScreen = oldScreen | newScreen;                // Binary OR to merge old and new
   setRegister(MAX7219_DIGIT_REG(side), nowScreen);  // Write to the display
   setRegister(MAX7219_SHUTDOWN_REG, MAX7219_ON);    // Turn the display on
@@ -120,7 +128,7 @@ void sevenSegment::off() {
   setRegister(MAX7219_SHUTDOWN_REG, MAX7219_OFF);
 }
 
-//Use to update single registers on MAX7219
+// Use to update single registers on MAX7219
 void sevenSegment::setRegister(byte address, byte value)
 {
   digitalWrite(_pinLoad, LOW);
