@@ -16,7 +16,6 @@ extern "C" {
 #define RIGHT_DISPLAY (0)
 #define DECIMAL       (B10000000)
 #define BLANK         (B00000000)
-#define n             (B00010101)
 #define c             (B00001101)
 #define h             (B00010111)
 #define r             (B00000101)
@@ -24,11 +23,6 @@ extern "C" {
 #define d             (B00111101)
 #define t             (B00001111)
 #define o             (B00011101)
-#define a             (B10011101)
-#define P             (B01100111)
-#define A             (B01110111)
-#define O             (B01111110)
-#define E             (B01001111)
 #define dash          (B00000001)
 //                      PABCDEFG
 sevenSegment display(14, 15, 13, 2);
@@ -67,7 +61,7 @@ sevensegment Display(14, 15, 13, 2);
 */
 
 byte scanChannel = 6;            // Current channel variable, and set it to start on channel 6
-signed minRSSI = -95;
+signed minRSSI = -99;
 byte frameModulation = 0;
 unsigned frameRSSI = 0;
 float frameRate = 0;
@@ -82,9 +76,9 @@ const int blinkDuration = 10;          // Amount of time to keep LEDs lit, 10 is
 const int minBlinkInterval = 60;       // Minimum amount of time between starting blinks, 60 is good
 const int shortPressInterval = 250;
 const int longPressInterval = 750;
-const int minDisplayPersist = 2400;    // How long the current display should persist after some events
-const int signalFlashDuration = 500;   // In signal threshold mode, how long to show signal on screen
-const int signalFlashInterval = 100;   // In signal threshold mode, how long to blank the screen
+const int minDisplayPersist = 2500;    // How long the current display should persist after some events
+const int signalFlashDuration = 500;   // In signal threshold edit mode, how long to show signal on screen
+const int signalFlashInterval = 100;   // In signal threshold edit mode, how long to blank the screen
 int eyeOpenInterval = 0;
 int eyeClosedDuration = 0;
 
@@ -92,13 +86,10 @@ int eyeClosedDuration = 0;
 unsigned long whenPlusPressed = 0;
 unsigned long whenMinusPressed = 0;
 unsigned long whenBlinked = 0;
-unsigned long whenDisplayPersist = 0;
-unsigned long whenSignalFlash = 0;
-unsigned long whenRetryUpdated = 0;
-unsigned long eyeBlinked = 0;
-unsigned long eyeOpened = 0;
-unsigned long eyeClosed = 0;
-unsigned long whenEye = 0;
+unsigned long whenDisplayPersist = 0;   // Persists current value on display after mode changes
+unsigned long whenSignalFlash = 0;      // For flashing the signal in signal edit mode
+unsigned long whenEyeClosed = 0;
+unsigned long idleTimer = 0;            // For tracking how long the display has been idle
 
 // State variables
 bool plusButtonState = false;
@@ -109,7 +100,7 @@ bool blinkingState = false;
 bool signalFlashState = false;
 bool signalEditState = false;
 bool displayPersist = false;       // Track if the screen needs to persist or not
-bool eyeMode = false;
+bool idleMode = false;
 bool eyeOpenState = false;
 
 bool serialEnable = false;
@@ -152,7 +143,6 @@ void setup() {
     Serial.print("\n");
   }
 
-  /*
   // Loop through numbers 0-99
   for (int initDisplay = 0 ; initDisplay <= 99 ; initDisplay++) {
       display.write(initDisplay);
@@ -176,7 +166,6 @@ void setup() {
       if (initDisplay <= 85) { digitalWrite(pinMGMT, LOW); }
       delay(10);
   }
-  */
 
   // Set display to current channel
   display.write(scanChannel);
@@ -190,6 +179,9 @@ void setup() {
   //   wifi_set_promiscuous_rx_cb(capture);
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
   wifi_promiscuous_enable(1);
+
+  // Reset the idle animation timer
+  idleReset();
 }
 
 struct RxControl {
@@ -251,11 +243,6 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
 
   if ((millis() - whenBlinked >= minBlinkInterval) && (blinkingState == false) && (ppkt->rx_ctrl.rssi >= minRSSI)) {
     blinkingState = true;
-
-    // If it's a data frame, turn on the retry LED flag
-    if (frameType == 2) {
-      isRetry = frame_ctrl->retry;
-    }
 
     // Convert RSSI, if the display mode is enabled
     if (displayMode == SIGNAL) {
@@ -356,7 +343,7 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
       Serial.print("%");
       Serial.print("\n");
     
-      Serial.print("\n");       // End of line
+      Serial.print("\n");
     }
   }
 }
@@ -385,6 +372,7 @@ void loop() {
     if (displayMode == SIGNAL) { inputSignalUp(); }
     else {inputChannelUp(); }
     plusButtonEvent = false;
+    idleReset();
   }
 
   // Plus button long press
@@ -392,6 +380,7 @@ void loop() {
     inputModeUp();
     plusButtonEvent = false;
     signalEditState = false;  // Cancel signal edit mode
+    idleReset();
   }
 
   // Start a timer for a minus button press
@@ -406,6 +395,7 @@ void loop() {
     if (displayMode == SIGNAL) {inputSignalDown(); }
     else {inputChannelDown(); }   
     minusButtonEvent = false;
+    idleReset();
   }
 
   // Minus button long press
@@ -413,6 +403,7 @@ void loop() {
     inputModeDown();    
     minusButtonEvent = false;
     signalEditState = false;  // Cancel signal edit mode
+    idleReset();
   }
 
   if (signalEditState == true) {
@@ -431,7 +422,6 @@ void loop() {
   // Release the display persistence flag when enough time has elapsed, reset chanel display and signal edit mode
   if ((displayPersist == true) && (millis() - whenDisplayPersist >= minDisplayPersist)) {
       displayPersist = false;               // Allow the display to be overwritten
-      //display.writeCustom(dash, dash);
       if (displayMode == CHANNEL) {
         display.write(scanChannel);
       }
@@ -440,36 +430,37 @@ void loop() {
       }
   }
 
-  // When the screen hasn't been updated in awhile, show the potato eyes and enable eye blink mode
-  if ((eyeMode == false) && (millis() - whenBlinked >= 5000)) {
+  // When the screen hasn't been updated in awhile, enable idle mode
+  if ((idleMode == false) && (millis() - idleTimer >= 5000)) {
     display.writeCustom(dash,dash);  
-    eyeMode = true;
+    idleMode = true;
     eyeOpenState = false;
-    whenEye = millis();
+    whenEyeClosed = millis();
     eyeClosedDuration = random(250,500);
   }
 
-  if (eyeMode == true) {
+  // Blinks and winks
+  if (idleMode == true) {
 
-    if ((eyeOpenState == false) && (millis() - whenEye >= eyeClosedDuration)) {
-      display.writeCustom(O, O);        // Open eyes
-      whenEye = millis();
+    if ((eyeOpenState == false) && (millis() - whenEyeClosed >= eyeClosedDuration)) {
+      display.writeCustom(O,O);        // Open eyes
+      whenEyeClosed = millis();
       eyeOpenInterval = random(250,5000);
       eyeOpenState = true;
     }
 
     if (eyeOpenState == true) {
 
-      if ((millis() - whenEye >= eyeOpenInterval - 500)) {
+      if ((millis() - whenEyeClosed >= eyeOpenInterval - 500)) {
         display.writeCustom(dash, dash);  // Close eyes
-        whenEye = millis();
-        eyeClosedDuration = random(80,300);
+        whenEyeClosed = millis();
+        eyeClosedDuration = random(60,200);
         eyeOpenState = false;  
       }
 
-      if ((millis() - whenEye >= eyeOpenInterval)) {
-        display.writeCustom(O, dash);  // Wink
-        whenEye = millis();
+      if ((millis() - whenEyeClosed >= eyeOpenInterval)) {
+        display.writeCustom(O,dash);  // Wink
+        whenEyeClosed = millis();
         eyeClosedDuration = random(280,320);
         eyeOpenState = false;
       }
@@ -504,23 +495,25 @@ void blinkOn(boolean modulationType, byte frameType, float displayRate, int disp
   if (frameType == 2) {
     digitalWrite(pinDATA, HIGH);
   }
-  if ((displayMode == SIGNAL) && (displayPersist == false)) {
-    display.write(displayRSSI);
-  }
-  if ((displayMode == RATE) && (displayPersist == false)) {
-    display.write(displayRate);
-    if (isMCS) {
-      display.add(RIGHT_DISPLAY, DECIMAL);
-      }
-  }
-  if ((displayMode == RETRY) && (displayPersist == false)) {
-    display.write(getRetry());
-    if (isRetry) {
-      display.add(RIGHT_DISPLAY, DECIMAL);
+  if (!displayPersist) {
+    if (displayMode == SIGNAL) {
+      display.write(displayRSSI);
     }
+    if (displayMode == RATE) {
+      display.write(displayRate);
+      if (isMCS) {
+        display.add(RIGHT_DISPLAY, DECIMAL);
+        }
+    }
+    if (displayMode == RETRY) {
+      display.write(getRetry());
+      if (isRetry) {
+        display.add(RIGHT_DISPLAY, DECIMAL);
+      }
+    }      
   }
   whenBlinked = millis();
-  eyeMode = false;
+  idleReset();
 }
 
 void blinkOff() {
@@ -544,9 +537,11 @@ void indicateDisplayMode(byte direction) {
     animateDisplayMode(direction);
       for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
         digitalWrite(pinMGMT, HIGH);
+        digitalWrite(pinCTRL, HIGH);
         digitalWrite(pinDATA, HIGH);
         delay(100);
         digitalWrite(pinMGMT, LOW);
+        digitalWrite(pinCTRL, LOW);
         digitalWrite(pinDATA, LOW);
         delay(100);
       }
@@ -716,17 +711,12 @@ int getRetry() {
       retryBufferCount++;                     // Add to the number of retries
     }
   }
-
-  // Simple way, which requires a buffer size of 100 to work
-  // retryRateRounded = retryBufferCount / retryBufferSize * 100;        // Calculate the percentage of retries
-  // return retryRateRounded;
-
-  // Advanced way, which uses a floating point number
   retryRateFloat = (float)retryBufferCount / retryBufferSize * 100; // Calculate the average
   retryRateRounded = round(retryRateFloat);                         // Convert to an integer
   return retryRateRounded;
 }
 
-void resetEyes(){
-  eyeMode = false;
+void idleReset() {
+  idleMode = false;
+  idleTimer = millis();
 }
