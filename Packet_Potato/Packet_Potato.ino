@@ -266,7 +266,7 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
           blinkOn(0,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 2:
-          frameRate = 55;
+          frameRate = 5.5;
           blinkOn(0,frameType,frameRate,frameRSSI,NOT_MCS,isRetry);
           break;
         case 3:
@@ -323,7 +323,7 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len) {
       
       else {
       Serial.print("Data Rate: ");
-      Serial.print(frameRate);
+      Serial.print(frameRate,1);
       Serial.print("\n");
       }
 
