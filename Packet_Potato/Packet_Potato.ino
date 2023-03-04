@@ -23,6 +23,9 @@ extern "C" {
 #define d             (B00111101)
 #define t             (B00001111)
 #define o             (B00011101)
+#define P             (B01100111)
+#define A             (B01110111)
+#define O             (B01111110)
 #define dash          (B00000001)
 //                      PABCDEFG
 sevenSegment display(14, 15, 13, 2);
