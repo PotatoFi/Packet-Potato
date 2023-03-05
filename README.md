@@ -33,12 +33,14 @@ Long-press the `-` and `+` buttons to switch display modes.
 1. **Channel**: Displays the current channel on screen (default).
 2. **Live Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
 3. **Live Data Rate/MCS**: Displays the data rate or MCS of the last frame.
+4. **Retry Rate**: Displays the retry rate as a percentage, measuring the last 200 data frames.
 
 When switching modes, the DATA, CTRL, and DATA LEDs will blink, and the screen will show characters to indicate which mode is selected:
 
-1. **DATA** and `ch`: Channel
-2. **CTRL** and `St`: Live Signal Strength
-3. **MGMT** and `ra`: Live Rate/MCS
+1. **All LEDs** and `ch`: Channel
+2. **MGMT** and `St`: Live Signal Strength
+3. **CTRL** and `ra`: Live Rate/MCS
+4. **DATA** and `rr`: Retry Rate
 
 ### Channel Mode
 
@@ -69,7 +71,19 @@ Things to try:
 - Look at what data rates the MGMT (Management) frames are transmitted at. The lowest one you see is likely your Minimum Basic Rate, e.g. the slowest rate on your network. This is typically an old rate like 1 or 11 to ensure backwards compatibibility.
 - With a 2.4 GHz 802.11n device, get it to move some data (by changing a setting, starting a throughput test, or transmitting some data). You should see MCS rates. Single-stream clients in the 5 to 7 range are happy clients, and two-stream clients closer to 15 are examples of happy clients.
 
-## Serial Output
+### Retry Rate ###
+
+The Packet Potato tracks the retry rate of the last 200 data frames that it hears, and displays the retry rate as a percentage. It uses a simple ring buffer to track how many of the frames were retries. Only data frames are included in the ring buffer.
+
+The primary function of the Packet Potato is to blink the LEDs whenever a frame is heard. Because of persistence of vision, the Packet Potato will only blink every 60 milliseconds. For the purposes of blinking, any frames heard during a blink is ignored. However, all data frames heard (whether they are blinked or not) are recorded in the ring buffer.
+
+The retry rate is only calculated and updated on the display whenever a frame is blinked. but the update might not result in the number changing if the channel is relatively quiet. A busy channel should see a constantly-updating data frame.
+
+_Note: In the future, the Retry Rate feature might be updated to use a sliding timespan like 10 or 30 seconds, instead of a simple 200 frames._
+
+In Live Data Rate mode, the `-` and `+` buttons adjust the channel (just like in Channnel and Live Data Rate modes). Whenver the channel is changed, the ring buffer is reset.
+
+## Serial Mode
 
 The Packet Potato will output some data about the frames it is hearing over serial at 115200 baud. Enable serial output mode by holding down `-` around the time that "Potato" disappears. You don't need to hold down the button for anything other than that, but it also won't hurt anything to hold the button down for a long time during the startup process.
 
