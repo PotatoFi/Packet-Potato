@@ -477,6 +477,10 @@ void resetScanning() {
   wifi_promiscuous_enable(0);
   WiFi.disconnect();
 
+  for (int i = 0; i < retryBufferSize; i++) {
+    retryBuffer[i] = 0;
+  }
+
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
   wifi_promiscuous_enable(1);
   wifi_set_channel(scanChannel);
@@ -628,7 +632,6 @@ void inputChannelUp() {
   if (scanChannel == 14) {
     scanChannel = 1;
   }
-  bool retryBuffer[retryBufferSize] = {0};  // Zero out the retry buffer
   display.write(scanChannel);
   displayPersist = true;
   whenDisplayPersist = millis();
@@ -640,7 +643,6 @@ void inputChannelDown() {
   if (scanChannel == 0) {
     scanChannel = 13;
   }
-  bool retryBuffer[retryBufferSize] = {0};  // Zero out the retry buffer
   display.write(scanChannel);
   displayPersist = true;
   whenDisplayPersist = millis();
