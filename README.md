@@ -71,11 +71,13 @@ Things to try:
 - Look at what data rates the MGMT (Management) frames are transmitted at. The lowest one you see is likely your Minimum Basic Rate, e.g. the slowest rate on your network. This is typically an old rate like 1 or 11 to ensure backwards compatibibility.
 - With a 2.4 GHz 802.11n device, get it to move some data (by changing a setting, starting a throughput test, or transmitting some data). You should see MCS rates. Single-stream clients in the 5 to 7 range are happy clients, and two-stream clients closer to 15 are examples of happy clients.
 
+_Note: Due to a limitation in the display controller code, 5.5 Mbps will only appear on the screen as 5. In Serial Mode, it will appear correctly as 5.5._
+
 ### Retry Rate ###
 
 The Packet Potato tracks the retry rate of the last 200 data frames that it hears, and displays the retry rate as a percentage. It uses a simple ring buffer to track how many of the frames were retries. Only data frames are included in the ring buffer.
 
-The primary function of the Packet Potato is to blink the LEDs whenever a frame is heard. Because of persistence of vision, the Packet Potato will only blink every 60 milliseconds. For the purposes of blinking, any frames heard during a blink is ignored. However, all data frames heard (whether they are blinked or not) are recorded in the ring buffer.
+The primary function of the Packet Potato is to blink the LEDs whenever a frame is heard. Because of persistence of vision, the Packet Potato will only blink every 60 milliseconds. For the purposes of blinking, any frames heard during a blink will be ignored. However, all data frames heard (whether they are blinked or not) are recorded in the ring buffer.
 
 The retry rate is only calculated and updated on the display whenever a frame is blinked. but the update might not result in the number changing if the channel is relatively quiet. A busy channel should see a constantly-updating data frame.
 
