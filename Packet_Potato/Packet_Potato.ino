@@ -434,7 +434,7 @@ void loop() {
   }
 
   // When the screen hasn't been updated in awhile, enable idle mode
-  if ((idleMode == false) && (millis() - idleTimer >= 5000)) {
+  if ((idleMode == false) && (displayMode != CHANNEL) && (millis() - idleTimer >= 5000)) {
     display.writeCustom(dash,dash);  
     idleMode = true;
     eyeOpenState = false;
