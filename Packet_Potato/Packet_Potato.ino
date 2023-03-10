@@ -430,6 +430,7 @@ void loop() {
       }
       if (displayMode == SIGNAL)  {
         signalEditState = false;
+        display.write(minRSSI * -1);
       }
   }
 
@@ -455,18 +456,18 @@ void loop() {
     if (eyeOpenState == true) {
 
       if (millis() - whenEyeClosed >= eyeOpenInterval) {
-        if (eyeOpenInterval <= 4500) {  // Close
+        if (eyeOpenInterval <= 4750) {  // Close
           display.writeCustom(dash, dash);
           eyeClosedDuration = random(60,200);
         }
 
-        if (eyeOpenInterval > 4500) {  // Wink
+        if (eyeOpenInterval > 4750) {  // Wink
           display.writeCustom(O,dash);
           eyeClosedDuration = random(320,360);
         }
         whenEyeClosed = millis();
         eyeOpenState = false;  
-        
+
       }
 
     }
