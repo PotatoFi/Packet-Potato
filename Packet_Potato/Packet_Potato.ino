@@ -32,9 +32,11 @@ sevenSegment display(14, 15, 13, 2);
 
 // Display modes
 #define CHANNEL       (1)
-#define SIGNAL        (2)
-#define RATE          (3)
-#define RETRY         (4)
+#define RATE          (2)
+#define RETRY         (3)
+#define SIGNAL        (4)
+
+
 
 #define UP            (1)
 #define DOWN          (0)
@@ -430,11 +432,12 @@ void loop() {
       }
       if (displayMode == SIGNAL)  {
         signalEditState = false;
+        display.write(minRSSI * -1);
       }
   }
 
   // When the screen hasn't been updated in awhile, enable idle mode
-  if ((idleMode == false) && (millis() - idleTimer >= 5000)) {
+  if ((idleMode == false) && (displayMode != CHANNEL) && (millis() - idleTimer >= 5000)) {
     display.writeCustom(dash,dash);  
     idleMode = true;
     eyeOpenState = false;
@@ -454,19 +457,21 @@ void loop() {
 
     if (eyeOpenState == true) {
 
-      if ((millis() - whenEyeClosed >= eyeOpenInterval - 500)) {
-        display.writeCustom(dash, dash);  // Close eyes
+      if (millis() - whenEyeClosed >= eyeOpenInterval) {
+        if (eyeOpenInterval <= 4750) {  // Close
+          display.writeCustom(dash, dash);
+          eyeClosedDuration = random(60,200);
+        }
+
+        if (eyeOpenInterval > 4750) {  // Wink
+          display.writeCustom(O,dash);
+          eyeClosedDuration = random(320,360);
+        }
         whenEyeClosed = millis();
-        eyeClosedDuration = random(60,200);
         eyeOpenState = false;  
+
       }
 
-      if ((millis() - whenEyeClosed >= eyeOpenInterval)) {
-        display.writeCustom(O,dash);  // Wink
-        whenEyeClosed = millis();
-        eyeClosedDuration = random(280,320);
-        eyeOpenState = false;
-      }
     }
   }
 }
@@ -542,27 +547,15 @@ void indicateDisplayMode(byte direction) {
     delay(100);
     display.writeCustom(c,h);
     animateDisplayMode(direction);
-      for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
+      for (int blinkLoop = 0 ; blinkLoop <= 4 ; blinkLoop++) {
         digitalWrite(pinMGMT, HIGH);
         digitalWrite(pinCTRL, HIGH);
         digitalWrite(pinDATA, HIGH);
-        delay(100);
+        delay(80);
         digitalWrite(pinMGMT, LOW);
         digitalWrite(pinCTRL, LOW);
         digitalWrite(pinDATA, LOW);
-        delay(100);
-      }
-  }
-
-  if (displayMode == SIGNAL) {
-    delay(100);
-    display.writeCustom(S,t);
-    animateDisplayMode(direction);
-      for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
-        digitalWrite(pinDATA, HIGH);
-        delay(100);
-        digitalWrite(pinDATA, LOW);
-        delay(100);
+        delay(80);
       }
   }
 
@@ -570,25 +563,37 @@ void indicateDisplayMode(byte direction) {
     delay(100);
     display.writeCustom(d,r);
     animateDisplayMode(direction);
-      for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
-        digitalWrite(pinCTRL, HIGH);
-        delay(100);
-        digitalWrite(pinCTRL, LOW);
-        delay(100);
-      }
+    for (int blinkLoop = 0 ; blinkLoop <= 4 ; blinkLoop++) {
+      digitalWrite(pinDATA, HIGH);
+      delay(80);
+      digitalWrite(pinDATA, LOW);
+      delay(80);
+    }
   }
 
   if (displayMode == RETRY) {
     delay(100);
     display.writeCustom(r,r);
     animateDisplayMode(direction);
-    for (int blinkLoop = 0 ; blinkLoop <= 3 ; blinkLoop++) {
-      digitalWrite(pinMGMT, HIGH);
-      delay(100);
-      digitalWrite(pinMGMT, LOW);
-      delay(100);
+    for (int blinkLoop = 0 ; blinkLoop <= 4 ; blinkLoop++) {
+      digitalWrite(pinCTRL, HIGH);
+      delay(80);
+      digitalWrite(pinCTRL, LOW);
+      delay(80);
     }
 
+  }
+
+  if (displayMode == SIGNAL) {
+    delay(100);
+    display.writeCustom(S,t);
+    animateDisplayMode(direction);
+    for (int blinkLoop = 0 ; blinkLoop <= 4 ; blinkLoop++) {
+      digitalWrite(pinMGMT, HIGH);
+      delay(80);
+      digitalWrite(pinMGMT, LOW);
+      delay(80);
+    }
   }
   
   wifi_set_promiscuous_rx_cb(wifi_sniffer_packet_handler);
@@ -599,31 +604,31 @@ void indicateDisplayMode(byte direction) {
 void animateDisplayMode(byte direction) {
   if (direction == UP) {
     digitalWrite(pinDATA, HIGH);
-    delay(100);
+    delay(80);
     digitalWrite(pinCTRL, HIGH);
-    delay(100);
+    delay(80);
     digitalWrite(pinMGMT, HIGH);
-    delay(100);
+    delay(80);
     digitalWrite(pinDATA, LOW);
-    delay(100);
+    delay(80);
     digitalWrite(pinCTRL, LOW);
-    delay(100);
+    delay(80);
     digitalWrite(pinMGMT, LOW);
-    delay(100);
+    delay(80);
   }
   if (direction == DOWN) {
     digitalWrite(pinMGMT, HIGH);
-    delay(100);
+    delay(80);
     digitalWrite(pinCTRL, HIGH);
-    delay(100);
+    delay(80);
     digitalWrite(pinDATA, HIGH);
-    delay(100);
+    delay(80);
     digitalWrite(pinMGMT, LOW);
-    delay(100);
+    delay(80);
     digitalWrite(pinCTRL, LOW);
-    delay(100);
+    delay(80);
     digitalWrite(pinDATA, LOW);
-    delay(100);
+    delay(80);
   }
 }
 
