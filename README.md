@@ -31,34 +31,20 @@ By default, the Packet Potato starts analyzing packets - er, sorry, **frames** o
 Long-press the `-` and `+` buttons to switch display modes.
 
 1. **Channel**: Displays the current channel on screen (default).
-2. **Live Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
-3. **Live Data Rate/MCS**: Displays the data rate or MCS of the last frame.
-4. **Retry Rate**: Displays the retry rate as a percentage, measuring the last 200 data frames.
+2. **Live Data Rate/MCS**: Displays the data rate or MCS of the last frame.
+3. **Retry Rate**: Displays the retry rate as a percentage, measuring the last 200 data frames.
+4. **Live Signal Strength**: Displays the signal strength of the last frame, in RSSI (negative number is implied)
 
 When switching modes, the DATA, CTRL, and DATA LEDs will blink, and the screen will show characters to indicate which mode is selected:
 
 1. **All LEDs** and `ch`: Channel
-2. **MGMT** and `St`: Live Signal Strength
-3. **CTRL** and `ra`: Live Rate/MCS
-4. **DATA** and `rr`: Retry Rate
+3. **DATA** and `ra`: Live Rate/MCS
+4. **MGMT** and `rr`: Retry Rate
+4. **CTRL** and `St`: Live Signal Strength
 
 ### Channel Mode
 
 Shows the current channel. Press the buttons to change it. Yawn.
-
-### Live Signal Strength
-
-Whoa, the display shows the signal strength in real-time! The screen will show the signal strength of the last frame blinked, in dBm. The negative is implied, of course, because you know... two characters. Is potato.
-
-By default, the Packet Potato blinks for any frame above `-99 dBm` (which should be everything it can hear). You can set a cutoff signal strength, causing the Packet Potato to ignore any frames that are quieter than the cutoff that you configure.
-
-Press `+` to increase the cutoff to higher signal strengths (remember that we are working in negatives, so it feels backward), and press `-` to decrease the cutoff to lower signal strengths. Each button press will change the threshold by `5 dB`. The changes will take effect in real-time, and persist when you switch to other modes. The configured number will blink 4 times, at which point the Packet Potato will return to showing you live signal strength.
-
-Things to try:
-
-- Try setting the Packet Potato to `-60 dBm`. It should only blink for APs and active clients in the same room.
-- Try `-40 dBm`, and wave it near an AP or active client. It should only blink when you're very close to the AP or active client.
-- If the Packet Potato doesn't blink, go back to Channel Mode and hop through the channels, one at a time. You should be able to figure out what channel your network is on in less than a minute!
 
 ### Live Data Rate
 
@@ -84,6 +70,20 @@ The retry rate is only calculated and updated on the display whenever a frame is
 _Note: In the future, the Retry Rate feature might be updated to use a sliding timespan like 10 or 30 seconds, instead of a simple 200 frames._
 
 In Live Data Rate mode, the `-` and `+` buttons adjust the channel (just like in Channnel and Live Data Rate modes). Whenver the channel is changed, the ring buffer is reset.
+
+### Live Signal Strength
+
+Whoa, the display shows the signal strength in real-time! The screen will show the signal strength of the last frame blinked, in dBm. The negative is implied, of course, because you know... two characters. Is potato.
+
+By default, the Packet Potato blinks for any frame above `-99 dBm` (which should be everything it can hear). You can set a cutoff signal strength, causing the Packet Potato to ignore any frames that are quieter than the cutoff that you configure.
+
+Press `+` to increase the cutoff to higher signal strengths (remember that we are working in negatives, so it feels backward), and press `-` to decrease the cutoff to lower signal strengths. Each button press will change the threshold by `5 dB`. The changes will take effect in real-time, and persist when you switch to other modes. The configured number will blink 4 times, at which point the Packet Potato will return to showing you live signal strength.
+
+Things to try:
+
+- Try setting the Packet Potato to `-60 dBm`. It should only blink for APs and active clients in the same room.
+- Try `-40 dBm`, and wave it near an AP or active client. It should only blink when you're very close to the AP or active client.
+- If the Packet Potato doesn't blink, go back to Channel Mode and hop through the channels, one at a time. You should be able to figure out what channel your network is on in less than a minute!
 
 ## Serial Mode
 
@@ -122,7 +122,7 @@ The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board f
 
 ### Windows
 
-Coming soonish.
+Idk. It's probably similar to macOS, but you might have to get a CH340 driver or something.
 
 ## Ardunio 1.x
 
