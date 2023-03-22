@@ -93,7 +93,7 @@ Note that the TX/RX pins on the WeMos D1 Mini are used to drive the CTRL and DAT
 
 # Assembly
 
-(Step-by-step Assembly Instructions)[https://docs.google.com/document/d/1kVgwYJ2VQNqdhtW-Op0LsA10GBszojh-9hCqgSDIf1k/edit?usp=sharing]
+[Step-by-step Assembly Instructions](https://docs.google.com/document/d/1kVgwYJ2VQNqdhtW-Op0LsA10GBszojh-9hCqgSDIf1k/edit?usp=sharing)
 
 ## General Assembly Instructions
 
