@@ -91,9 +91,17 @@ The Packet Potato will output some data about the frames it is hearing over seri
 
 Note that the TX/RX pins on the WeMos D1 Mini are used to drive the CTRL and DATA LED's, so whenever serial is in use, those two LED's will illuminate. There weren't enough pins on the WeMos. Is potato.
 
-# Hardware
+# Assembly
 
-The Packet Potato uses an ESP8266. More specifically, it uses a WeMos D1 Mini, which was chosen for ease of soldering, and so soldering class attendees could move the ESP8266 to a breadboard for other electronics projects.
+(Step-by-step Assembly Instructions)[https://docs.google.com/document/d/1kVgwYJ2VQNqdhtW-Op0LsA10GBszojh-9hCqgSDIf1k/edit?usp=sharing]
+
+## General Assembly Instructions
+
+- Nearly all components are soldered to the front of the board (the side that says "Packet Potato")
+- The pin headers, JST battery connector, and power switch are installed on the back of the board (the side with Fry)
+- The female pin headers are soldered directly to the Packet Potato, and the male headers are soldered to the WeMos D1 Mini
+- The ESP8266 radio sheild antenna should face outward
+
 
 ## Power
 
