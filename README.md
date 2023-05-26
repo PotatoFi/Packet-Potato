@@ -121,12 +121,15 @@ The heart of the Packet Potato is the WeMos D1 Mini, which is a breakout board f
 
 1. Download and install the Ardunio IDE from https://arduino.cc/en/main/software.
 2. Download and unzip the latest Packet Potato release from the releases page: https://github.com/PotatoFi/Packet-Potato/releases
-3. In the Ardunio IDE, point to Ardunio IDE > Open and select Packet_Potato.ino from the unzipped files.
-4. Click the **Select Board** dropdown, and click `Selet other board and port...`
-5. In the search box under **Boards**, search for `LOLIN(WEMOS) D1 R2 & mini`
-5. Under **Ports**, select `/dev/cu.usbserial-14340 Serial Port (USB)` or similar
-6. Click **Tools > CPU Frequency > 160 MHz**
-6. Click **Upload**
+3. In the Ardunio IDE, point to **Ardunino IDE** in the menu bar, then **Settings**.
+4. In the **Additional boards manager URLs** field, add `https://arduino.esp8266.com/stable/package_esp8266com_index.json` and click **OK**.
+5. In the lower left, the Ardunio IDE will ask you to install an ESP8266 core. Click **YES** and wait for the core to install.
+6. In the Ardunio IDE, point to Ardunio IDE > Open and select Packet_Potato.ino from the unzipped files.
+7. Click the **Select Board** dropdown, and click `Selet other board and port...`
+8. In the search box under **Boards**, search for and select `LOLIN(WEMOS) D1 R2 & mini`
+9. Under **Ports**, select `/dev/cu.usbserial-14340 Serial Port (USB)` or similar
+10. Click **Tools > CPU Frequency > 160 MHz**
+11. Click **Upload**
 
 ### Windows
 
