@@ -80,5 +80,8 @@ byte getFrameType(wifi_promiscuous_pkt_type_t type)
 
     case WIFI_PKT_DATA:
     return 2;
+
+    default:
+    return 0;
   }
 }
